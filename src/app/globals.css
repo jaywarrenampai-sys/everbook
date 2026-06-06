@@ -1,0 +1,102 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+/* ──────────────────────────────────────────────────────────────
+   Marketing landing — design tokens (Everbook)
+   ────────────────────────────────────────────────────────────── */
+@theme {
+  --color-cream:      #F7F3EC;
+  --color-sand:       #EDE4D6;
+  --color-clay:       #C9A88B;
+  --color-terracotta: #B4734E;
+  --color-espresso:   #2E2620;
+  --color-ink:        #1A1612;
+  --color-mist:       #FBFAF7;
+  --color-leaf:       #6E7B5B;
+  --color-rosetag:    #F3D7CB;
+
+  --font-display: var(--font-fraunces), Georgia, serif;
+  --font-body:    var(--font-inter), system-ui, sans-serif;
+
+  --shadow-card: 0 4px 24px -8px rgba(46, 38, 32, 0.12);
+  --shadow-lift: 0 12px 40px -12px rgba(46, 38, 32, 0.22);
+
+  --text-display: clamp(2.75rem, 6vw, 5rem);
+  --text-h2:      clamp(2rem, 4vw, 3.25rem);
+  --text-lead:    clamp(1.05rem, 1.6vw, 1.35rem);
+}
+
+html { scroll-behavior: smooth; }
+
+.font-display { font-family: var(--font-display); }
+.font-body { font-family: var(--font-body); }
+
+.eyebrow {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+.animate-marquee { animation: marquee 32s linear infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-marquee { animation: none; }
+}
+
+/* ──────────────────────────────────────────────────────────────
+   Mobile / touch hardening (Android + iOS)
+   ────────────────────────────────────────────────────────────── */
+
+/* No accidental horizontal scrolling anywhere */
+html, body { max-width: 100%; overflow-x: hidden; }
+
+/* iOS: inputs under 16px trigger an auto-zoom on focus. Force >=16px on phones. */
+@media (max-width: 767px) {
+  input, select, textarea { font-size: 16px !important; }
+}
+
+/* Smooth momentum scrolling + no tap highlight flash on touch */
+* { -webkit-tap-highlight-color: transparent; }
+.scroll-touch { -webkit-overflow-scrolling: touch; }
+
+/* Safe-area helpers for notched phones (used with viewport-fit=cover) */
+.pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+.pt-safe { padding-top: env(safe-area-inset-top); }
+.h-screen-safe { height: 100dvh; }
+
+/* Comfortable minimum tap target */
+@media (max-width: 767px) {
+  button, a[role="button"], .tap { min-height: 40px; }
+}

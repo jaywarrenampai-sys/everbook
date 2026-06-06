@@ -252,7 +252,14 @@ export default function Sidebar({ onArm }: { onArm?: () => void } = {}) {
         )}
       </div>
 
-      <input ref={fileRef} type="file" multiple accept="image/*" className="hidden" onChange={handleFiles} />
+      <input
+        ref={fileRef}
+        type="file"
+        multiple
+        accept="image/*"
+        onChange={handleFiles}
+        style={{ position: "absolute", left: "-9999px", top: "-9999px", width: "1px", height: "1px", opacity: 0, pointerEvents: "none" }}
+      />
     </div>
   );
 }

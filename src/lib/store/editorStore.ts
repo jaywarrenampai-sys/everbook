@@ -16,6 +16,7 @@ import {
   updateText as updateTextOnPage,
   removeText as removeTextFromPage,
   setBackground as setBackgroundOnPage,
+  setFullBleed as setFullBleedOnPage,
 } from "@/lib/editor/layout";
 import { getTemplate } from "@/lib/editor/templates";
 import { uid } from "@/lib/uid";
@@ -88,6 +89,7 @@ interface EditorState {
   removeSelected: () => void;
   applyTemplate: (pageId: string, templateId: string) => void;
   setBackground: (pageId: string, background?: string) => void;
+  setFullBleed: (pageId: string, fullBleed: boolean) => void;
 
   // ── Text ──
   addTextBox: (pageId: string) => void;
@@ -248,6 +250,8 @@ export const useEditorStore = create<EditorState>((set, get) => {
       commit(mapPage(pageId, (p) => applyTemplateToPage(p, templateId))),
     setBackground: (pageId, background) =>
       commit(mapPage(pageId, (p) => setBackgroundOnPage(p, background))),
+    setFullBleed: (pageId, fullBleed) =>
+      commit(mapPage(pageId, (p) => setFullBleedOnPage(p, fullBleed))),
 
     // ── Text ──
     addTextBox: (pageId) => commit(mapPage(pageId, (p) => addTextToPage(p, defaultTextBox()))),

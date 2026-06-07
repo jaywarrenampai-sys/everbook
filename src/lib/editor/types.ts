@@ -62,6 +62,8 @@ export interface BookPage {
   background?: string;
   /** Marks the front-cover page so the cover editor can treat it specially */
   isCover?: boolean;
+  /** Full bleed mode: remove all margins/borders so images go edge-to-edge */
+  fullBleed?: boolean;
 }
 
 /** The full editor state — this is what gets saved to / loaded from the DB */

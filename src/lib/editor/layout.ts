@@ -144,3 +144,8 @@ export function removeText(page: BookPage, textId: string): BookPage {
 export function setBackground(page: BookPage, background?: string): BookPage {
   return { ...page, background };
 }
+
+/** Toggle full bleed mode on a page (immutable) */
+export function setFullBleed(page: BookPage, fullBleed: boolean): BookPage {
+  return { ...page, fullBleed };
+}

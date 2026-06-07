@@ -8,6 +8,7 @@ interface Props {
   photos: UploadedPhoto[];
   width: number;
   height: number;
+  fullBleed?: boolean;
 }
 
 /** Resolve a background id/hex to a CSS value. */
@@ -20,8 +21,11 @@ function bgToCss(bg?: string): string {
  * Pure, read-only render of one book page at a given pixel size.
  * Coordinates are 0–1 fractions (same system as PDF export).
  * Used for grid thumbnails AND as the visual base of the single view.
+ *
+ * When fullBleed is true, template slots are scaled to remove margins
+ * and extend to the page edges.
  */
-export default function PageCanvas({ page, photos, width, height }: Props) {
+export default function PageCanvas({ page, photos, width, height, fullBleed }: Props) {
   if (!page) {
     return <div style={{ width, height }} className="shrink-0 bg-neutral-50" />;
   }
@@ -29,23 +33,49 @@ export default function PageCanvas({ page, photos, width, height }: Props) {
   const template = getTemplate(page.templateId);
   const photoById = (id?: string) => (id ? photos.find((p) => p.id === id) : undefined);
 
+  /**
+   * When fullBleed is enabled, scale slot positioning to remove margins.
+   * This adjusts slots that have built-in margins to extend to the page edges.
+   */
+  const adjustSlotForBleed = (
+    slotX: number,
+    slotY: number,
+    slotWidth: number,
+    slotHeight: number
+  ) => {
+    if (!fullBleed) return { x: slotX, y: slotY, w: slotWidth, h: slotHeight };
+
+    // Scale slots to remove margins: contract the overall bounding box
+    // and expand slots to fill it, effectively removing safety margins
+    const margin = 0.04; // typical margin in templates
+    const scaleFactor = 1 / (1 - margin * 2);
+    const adjustedX = Math.max(0, (slotX - margin) * scaleFactor);
+    const adjustedY = Math.max(0, (slotY - margin) * scaleFactor);
+    const adjustedW = Math.min(1, slotWidth * scaleFactor);
+    const adjustedH = Math.min(1, slotHeight * scaleFactor);
+
+    return { x: adjustedX, y: adjustedY, w: adjustedW, h: adjustedH };
+  };
+
   return (
     <div
       style={{ width, height, background: bgToCss(page.background) }}
       className="relative shrink-0 overflow-hidden"
+      data-fullbleed={fullBleed ? "true" : undefined}
     >
       {/* Template slots */}
       {template.slots.map((slot) => {
         const photo = photoById(page.slotFills[slot.id]);
+        const adjusted = adjustSlotForBleed(slot.x, slot.y, slot.width, slot.height);
         return (
           <div
             key={slot.id}
             style={{
               position: "absolute",
-              left: slot.x * width,
-              top: slot.y * height,
-              width: slot.width * width,
-              height: slot.height * height,
+              left: adjusted.x * width,
+              top: adjusted.y * height,
+              width: adjusted.w * width,
+              height: adjusted.h * height,
             }}
             className="overflow-hidden bg-neutral-100"
           >

@@ -51,14 +51,12 @@ export default function Sidebar({ onArm }: { onArm?: () => void } = {}) {
 
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
-  const [addOpen, setAddOpen] = useState(false);
 
   const currentPage = layout.pages[layout.currentPageIndex];
 
   async function handleFiles(e: React.ChangeEvent<HTMLInputElement>) {
     if (!e.target.files?.length) return;
     setUploading(true);
-    setAddOpen(false);
     try {
       addPhotos(await processFiles(e.target.files));
     } finally {
@@ -94,25 +92,14 @@ export default function Sidebar({ onArm }: { onArm?: () => void } = {}) {
         {activePanel === "images" && (
           <>
             <div className="space-y-2 border-b border-neutral-100 p-3">
-              <div className="relative">
-                <button
-                  onClick={() => setAddOpen((v) => !v)}
-                  className="flex w-full items-center justify-between rounded-md border border-neutral-300 px-3 py-2 text-sm font-medium text-neutral-700 transition-colors hover:border-neutral-500"
-                >
-                  <span className="flex items-center gap-2">
-                    <svg width="14" height="14" viewBox="0 0 14 14"><path d="M7 2v10M2 7h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
-                    เพิ่มรูปภาพ
-                  </span>
-                  <svg width="12" height="12" viewBox="0 0 12 12" className={addOpen ? "rotate-180" : ""}><path d="M2 4l4 4 4-4" stroke="currentColor" strokeWidth="1.3" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                </button>
-                {addOpen && (
-                  <div className="absolute inset-x-0 top-full z-50 mt-1 overflow-hidden rounded-md border border-neutral-200 bg-white shadow-lg">
-                    <button onClick={() => fileRef.current?.click()} className="flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm text-neutral-700 hover:bg-neutral-50">
-                      📁 จากคอมพิวเตอร์
-                    </button>
-                  </div>
-                )}
-              </div>
+              <button
+                onClick={() => fileRef.current?.click()}
+                disabled={uploading}
+                className="flex w-full items-center justify-center gap-2 rounded-md border border-neutral-300 px-3 py-2 text-sm font-medium text-neutral-700 transition-colors hover:border-neutral-500 disabled:opacity-50"
+              >
+                <svg width="14" height="14" viewBox="0 0 14 14"><path d="M7 2v10M2 7h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
+                {uploading ? "กำลังอัปโหลด..." : "เพิ่มรูปภาพ"}
+              </button>
 
               {/* Smart Creation */}
               <button

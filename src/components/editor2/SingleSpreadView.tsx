@@ -86,6 +86,7 @@ function Toolbar() {
   const removeSelected = useEditorStore((s) => s.removeSelected);
   const selection = useEditorStore((s) => s.selection);
   const updateTextBox = useEditorStore((s) => s.updateTextBox);
+  const setFullBleed = useEditorStore((s) => s.setFullBleed);
 
   const page = layout.pages[layout.currentPageIndex];
   const selText =
@@ -98,6 +99,19 @@ function Toolbar() {
       <button onClick={() => page && addTextBox(page.id)} className="rounded px-3 py-1 text-xs font-medium text-neutral-700 hover:bg-neutral-100">
         + เพิ่มข้อความ
       </button>
+
+      {page && (
+        <>
+          <div className="h-4 w-px bg-neutral-200" />
+          <button
+            onClick={() => setFullBleed(page.id, !page.fullBleed)}
+            className={`rounded px-3 py-1 text-xs font-medium ${page.fullBleed ? "bg-neutral-900 text-white" : "text-neutral-700 hover:bg-neutral-100"}`}
+            title={page.fullBleed ? "เปิดโครงร่างปกติ" : "เปิดโหมดเต็มหน้า"}
+          >
+            {page.fullBleed ? "📄 เต็มหน้า" : "📄 เต็มหน้า"}
+          </button>
+        </>
+      )}
 
       {selText && (
         <>

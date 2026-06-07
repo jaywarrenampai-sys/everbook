@@ -47,8 +47,15 @@ export interface BookPage {
   /** Which template is applied to this page (default: "blank") */
   templateId: string;
   /**
+   * All photos ever added to this page.
+   * NEVER deleted when template changes.
+   * This is the source of truth for photos.
+   */
+  images: string[];  // Array of photoIds
+  /**
    * Template mode: maps slotId → photoId.
    * Used when templateId !== "blank".
+   * References photoIds from the images array.
    */
   slotFills: Record<string, string>;
   /**

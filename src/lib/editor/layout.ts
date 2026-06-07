@@ -42,6 +42,7 @@ export function newPage(templateId = "blank"): BookPage {
   return {
     id: uid(),
     templateId,
+    images: [],  // Source of truth for all photos
     slotFills: {},
     placements: [],
   };
@@ -53,7 +54,14 @@ export function fillSlot(
   slotId: string,
   photoId: string
 ): BookPage {
-  return { ...page, slotFills: { ...page.slotFills, [slotId]: photoId } };
+  // Add photo to images array if not already there
+  const images = page.images.includes(photoId) ? page.images : [...page.images, photoId];
+
+  return {
+    ...page,
+    images,
+    slotFills: { ...page.slotFills, [slotId]: photoId },
+  };
 }
 
 /** Clear a slot (immutable) */
@@ -63,26 +71,27 @@ export function clearSlot(page: BookPage, slotId: string): BookPage {
   return { ...page, slotFills };
 }
 
-/** Change the template of a page while preserving photos and full bleed settings */
+/** Change the template of a page while preserving all photos and settings */
 export function applyTemplate(page: BookPage, templateId: string): BookPage {
-  // Get all currently filled photos (in order)
-  const currentPhotos = Object.values(page.slotFills).filter(Boolean);
-
-  // Map photos to new template's slots in order
-  // This preserves photos when switching templates
+  // Get the new template definition
   const newTemplate = getTemplate(templateId);
+
+  // Map images from the page.images array to the new template's slots
+  // Photos are drawn from the images array (never deleted), just remapped to new slots
   const newSlotFills: Record<string, string> = {};
   newTemplate.slots.forEach((slot, index) => {
-    if (currentPhotos[index]) {
-      newSlotFills[slot.id] = currentPhotos[index];
+    // Map images by index: first image → first slot, second image → second slot, etc.
+    if (page.images[index]) {
+      newSlotFills[slot.id] = page.images[index];
     }
   });
 
   return {
     ...page,
     templateId,
-    slotFills: newSlotFills, // Preserve and remap photos
-    // Preserve free placements (blank page photos)
+    // images array is NEVER modified - always preserved
+    slotFills: newSlotFills,  // Only remap slot references
+    // Preserve free placements
     placements: page.placements,
     // Preserve full bleed and crop settings
     fullBleed: page.fullBleed,
@@ -127,7 +136,16 @@ export function removePlacement(page: BookPage, placementId: string): BookPage {
 
 /** Add a placement to a page (immutable) */
 export function addPlacement(page: BookPage, placement: PlacedPhoto): BookPage {
-  return { ...page, placements: [...page.placements, placement] };
+  // Add photo to images array if not already there
+  const images = page.images.includes(placement.photoId)
+    ? page.images
+    : [...page.images, placement.photoId];
+
+  return {
+    ...page,
+    images,
+    placements: [...page.placements, placement],
+  };
 }
 
 // ─── Text boxes ────────────────────────────────────────────────────────────

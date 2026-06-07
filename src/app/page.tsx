@@ -1,31 +1,31 @@
-import AnnouncementBar from "@/components/marketing/AnnouncementBar";
-import SiteHeader from "@/components/marketing/SiteHeader";
-import Hero from "@/components/marketing/Hero";
-import TrustMarquee from "@/components/marketing/TrustMarquee";
-import Advantages from "@/components/marketing/Advantages";
-import HowItWorks from "@/components/marketing/HowItWorks";
-import QualitySpotlight from "@/components/marketing/QualitySpotlight";
-import ProductShowcase from "@/components/marketing/ProductShowcase";
-import Testimonials from "@/components/marketing/Testimonials";
-import FaqSection from "@/components/marketing/FaqSection";
-import GuaranteeStrip from "@/components/marketing/GuaranteeStrip";
-import SiteFooter from "@/components/marketing/SiteFooter";
+import { AnnouncementBar } from "@/components/announcement-bar";
+import { SiteHeader } from "@/components/site-header";
+import { Hero } from "@/components/hero";
+import { Marquee } from "@/components/marquee";
+import { Features } from "@/components/features";
+import { Steps } from "@/components/steps";
+import { Quality } from "@/components/quality";
+import { Pricing } from "@/components/pricing";
+import { Testimonials } from "@/components/testimonials";
+import { Faq } from "@/components/faq";
+import { TrustBadges } from "@/components/trust-badges";
+import { SiteFooter } from "@/components/site-footer";
 
-export default function Home() {
+export default function Page() {
   return (
-    <div className="font-body">
+    <div className="min-h-screen bg-background">
       <AnnouncementBar />
       <SiteHeader />
       <main>
         <Hero />
-        <TrustMarquee />
-        <Advantages />
-        <HowItWorks />
-        <QualitySpotlight />
-        <ProductShowcase />
+        <Marquee />
+        <Features />
+        <Steps />
+        <Quality />
+        <Pricing />
         <Testimonials />
-        <FaqSection />
-        <GuaranteeStrip />
+        <Faq />
+        <TrustBadges />
       </main>
       <SiteFooter />
     </div>

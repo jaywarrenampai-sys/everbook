@@ -4,6 +4,7 @@
 
 import { BookPage, PlacedPhoto, TextBox } from "./types";
 import { uid } from "@/lib/uid";
+import { getTemplate } from "./templates";
 
 /** Book page aspect ratio (width / height).
  *  Placeholder: A4 landscape = 297mm / 210mm ≈ 1.4143
@@ -62,9 +63,33 @@ export function clearSlot(page: BookPage, slotId: string): BookPage {
   return { ...page, slotFills };
 }
 
-/** Change the template of a page, clearing all slot fills */
+/** Change the template of a page while preserving photos and full bleed settings */
 export function applyTemplate(page: BookPage, templateId: string): BookPage {
-  return { ...page, templateId, slotFills: {}, placements: [] };
+  // Get all currently filled photos (in order)
+  const currentPhotos = Object.values(page.slotFills).filter(Boolean);
+
+  // Map photos to new template's slots in order
+  // This preserves photos when switching templates
+  const newTemplate = getTemplate(templateId);
+  const newSlotFills: Record<string, string> = {};
+  newTemplate.slots.forEach((slot, index) => {
+    if (currentPhotos[index]) {
+      newSlotFills[slot.id] = currentPhotos[index];
+    }
+  });
+
+  return {
+    ...page,
+    templateId,
+    slotFills: newSlotFills, // Preserve and remap photos
+    // Preserve free placements (blank page photos)
+    placements: page.placements,
+    // Preserve full bleed and crop settings
+    fullBleed: page.fullBleed,
+    cropX: page.cropX,
+    cropY: page.cropY,
+    zoom: page.zoom,
+  };
 }
 
 /** Add a new placement to a page, centred, sized to 40% of page */

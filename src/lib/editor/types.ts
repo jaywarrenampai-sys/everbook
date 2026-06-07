@@ -64,6 +64,12 @@ export interface BookPage {
   isCover?: boolean;
   /** Full bleed mode: remove all margins/borders so images go edge-to-edge */
   fullBleed?: boolean;
+  /** Horizontal crop offset (-100 to +100, center = 0) when fullBleed is ON */
+  cropX?: number;
+  /** Vertical crop offset (-100 to +100, center = 0) when fullBleed is ON */
+  cropY?: number;
+  /** Zoom level (100 to 300) when fullBleed is ON */
+  zoom?: number;
 }
 
 /** The full editor state — this is what gets saved to / loaded from the DB */

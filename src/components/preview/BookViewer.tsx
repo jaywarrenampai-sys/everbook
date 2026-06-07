@@ -124,7 +124,6 @@ export default function BookViewer({
             photos={photos}
             width={pageWidth}
             height={pageHeight}
-            fullBleed={page.fullBleed}
           />
           {/* Corner indicators for page turning */}
           <div

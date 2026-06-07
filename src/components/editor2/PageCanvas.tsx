@@ -8,7 +8,6 @@ interface Props {
   photos: UploadedPhoto[];
   width: number;
   height: number;
-  fullBleed?: boolean;
 }
 
 /** Resolve a background id/hex to a CSS value. */
@@ -22,10 +21,9 @@ function bgToCss(bg?: string): string {
  * Coordinates are 0–1 fractions (same system as PDF export).
  * Used for grid thumbnails AND as the visual base of the single view.
  *
- * When fullBleed is true, template slots are scaled to remove margins
- * and extend to the page edges.
+ * Supports full bleed mode where images extend edge-to-edge with crop/zoom controls.
  */
-export default function PageCanvas({ page, photos, width, height, fullBleed }: Props) {
+export default function PageCanvas({ page, photos, width, height }: Props) {
   if (!page) {
     return <div style={{ width, height }} className="shrink-0 bg-neutral-50" />;
   }
@@ -34,54 +32,61 @@ export default function PageCanvas({ page, photos, width, height, fullBleed }: P
   const photoById = (id?: string) => (id ? photos.find((p) => p.id === id) : undefined);
 
   /**
-   * When fullBleed is enabled, scale slot positioning to remove margins.
-   * This adjusts slots that have built-in margins to extend to the page edges.
+   * Calculate image transform for full bleed mode.
+   * cropX and cropY shift the image center; zoom scales it up.
    */
-  const adjustSlotForBleed = (
-    slotX: number,
-    slotY: number,
-    slotWidth: number,
-    slotHeight: number
-  ) => {
-    if (!fullBleed) return { x: slotX, y: slotY, w: slotWidth, h: slotHeight };
-
-    // Scale slots to remove margins: contract the overall bounding box
-    // and expand slots to fill it, effectively removing safety margins
-    const margin = 0.04; // typical margin in templates
-    const scaleFactor = 1 / (1 - margin * 2);
-    const adjustedX = Math.max(0, (slotX - margin) * scaleFactor);
-    const adjustedY = Math.max(0, (slotY - margin) * scaleFactor);
-    const adjustedW = Math.min(1, slotWidth * scaleFactor);
-    const adjustedH = Math.min(1, slotHeight * scaleFactor);
-
-    return { x: adjustedX, y: adjustedY, w: adjustedW, h: adjustedH };
+  const getImageTransform = (zoom: number = 100, cropX: number = 0, cropY: number = 0): string => {
+    const zoomPercent = zoom / 100;
+    // Translate by crop offset (as percentage of zoom)
+    const translateX = (cropX / 100) * 20; // scale crop range to reasonable pixels
+    const translateY = (cropY / 100) * 20;
+    return `translate(${translateX}%, ${translateY}%) scale(${zoomPercent})`;
   };
 
   return (
     <div
       style={{ width, height, background: bgToCss(page.background) }}
       className="relative shrink-0 overflow-hidden"
-      data-fullbleed={fullBleed ? "true" : undefined}
     >
       {/* Template slots */}
       {template.slots.map((slot) => {
         const photo = photoById(page.slotFills[slot.id]);
-        const adjusted = adjustSlotForBleed(slot.x, slot.y, slot.width, slot.height);
+
+        // When fullBleed is ON, make slot fill entire page
+        const isFullBleed = page.fullBleed === true;
+        const slotX = isFullBleed ? 0 : slot.x;
+        const slotY = isFullBleed ? 0 : slot.y;
+        const slotWidth = isFullBleed ? 1 : slot.width;
+        const slotHeight = isFullBleed ? 1 : slot.height;
+
         return (
           <div
             key={slot.id}
             style={{
               position: "absolute",
-              left: adjusted.x * width,
-              top: adjusted.y * height,
-              width: adjusted.w * width,
-              height: adjusted.h * height,
+              left: slotX * width,
+              top: slotY * height,
+              width: slotWidth * width,
+              height: slotHeight * height,
+              overflow: "hidden",
             }}
-            className="overflow-hidden bg-neutral-100"
+            className="bg-neutral-100"
           >
             {photo && (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={photo.previewUrl} alt="" draggable={false} className="h-full w-full object-cover" />
+              <img
+                src={photo.previewUrl}
+                alt=""
+                draggable={false}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
+                  objectPosition: "center",
+                  transform: isFullBleed ? getImageTransform(page.zoom, page.cropX, page.cropY) : undefined,
+                  transformOrigin: "center",
+                }}
+              />
             )}
           </div>
         );
@@ -100,8 +105,8 @@ export default function PageCanvas({ page, photos, width, height, fullBleed }: P
               top: pl.y * height,
               width: pl.width * width,
               height: pl.height * height,
+              overflow: "hidden",
             }}
-            className="overflow-hidden"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={photo.previewUrl} alt="" draggable={false} className="h-full w-full object-cover" />

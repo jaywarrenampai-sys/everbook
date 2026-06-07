@@ -147,5 +147,20 @@ export function setBackground(page: BookPage, background?: string): BookPage {
 
 /** Toggle full bleed mode on a page (immutable) */
 export function setFullBleed(page: BookPage, fullBleed: boolean): BookPage {
-  return { ...page, fullBleed };
+  return { ...page, fullBleed, cropX: 0, cropY: 0, zoom: 100 };
+}
+
+/** Set horizontal crop position for full bleed (immutable) */
+export function setCropX(page: BookPage, cropX: number): BookPage {
+  return { ...page, cropX: Math.max(-100, Math.min(100, cropX)) };
+}
+
+/** Set vertical crop position for full bleed (immutable) */
+export function setCropY(page: BookPage, cropY: number): BookPage {
+  return { ...page, cropY: Math.max(-100, Math.min(100, cropY)) };
+}
+
+/** Set zoom level for full bleed (immutable) */
+export function setZoom(page: BookPage, zoom: number): BookPage {
+  return { ...page, zoom: Math.max(100, Math.min(300, zoom)) };
 }

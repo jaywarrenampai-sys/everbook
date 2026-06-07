@@ -6,6 +6,7 @@ import { useIsMobile } from "@/lib/useIsMobile";
 import { BookPage, UploadedPhoto } from "@/lib/editor/types";
 import { getTemplate } from "@/lib/editor/templates";
 import { clampPlacement, clamp } from "@/lib/editor/layout";
+import FullBleedControls from "./FullBleedControls";
 
 const ASPECT = 1 / 0.77; // height / width (portrait 8.5:11)
 
@@ -87,6 +88,9 @@ function Toolbar() {
   const selection = useEditorStore((s) => s.selection);
   const updateTextBox = useEditorStore((s) => s.updateTextBox);
   const setFullBleed = useEditorStore((s) => s.setFullBleed);
+  const setCropX = useEditorStore((s) => s.setCropX);
+  const setCropY = useEditorStore((s) => s.setCropY);
+  const setZoom = useEditorStore((s) => s.setZoom);
 
   const page = layout.pages[layout.currentPageIndex];
   const selText =
@@ -95,52 +99,66 @@ function Toolbar() {
       : undefined;
 
   return (
-    <div className="flex items-center gap-2 rounded-full bg-white px-3 py-1.5 shadow-card ring-1 ring-neutral-200">
-      <button onClick={() => page && addTextBox(page.id)} className="rounded px-3 py-1 text-xs font-medium text-neutral-700 hover:bg-neutral-100">
-        + เพิ่มข้อความ
-      </button>
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center gap-2 rounded-full bg-white px-3 py-1.5 shadow-card ring-1 ring-neutral-200">
+        <button onClick={() => page && addTextBox(page.id)} className="rounded px-3 py-1 text-xs font-medium text-neutral-700 hover:bg-neutral-100">
+          + เพิ่มข้อความ
+        </button>
 
-      {page && (
-        <>
-          <div className="h-4 w-px bg-neutral-200" />
-          <button
-            onClick={() => setFullBleed(page.id, !page.fullBleed)}
-            className={`rounded px-3 py-1 text-xs font-medium ${page.fullBleed ? "bg-neutral-900 text-white" : "text-neutral-700 hover:bg-neutral-100"}`}
-            title={page.fullBleed ? "เปิดโครงร่างปกติ" : "เปิดโหมดเต็มหน้า"}
-          >
-            {page.fullBleed ? "📄 เต็มหน้า" : "📄 เต็มหน้า"}
-          </button>
-        </>
-      )}
-
-      {selText && (
-        <>
-          <div className="h-4 w-px bg-neutral-200" />
-          {(["left", "center", "right"] as const).map((a) => (
+        {page && (
+          <>
+            <div className="h-4 w-px bg-neutral-200" />
             <button
-              key={a}
-              onClick={() => updateTextBox(page.id, { ...selText, align: a })}
-              className={`rounded px-2 py-1 text-xs ${selText.align === a ? "bg-neutral-900 text-white" : "text-neutral-600 hover:bg-neutral-100"}`}
+              onClick={() => setFullBleed(page.id, !page.fullBleed)}
+              className={`rounded px-3 py-1 text-xs font-medium ${page.fullBleed ? "bg-neutral-900 text-white" : "text-neutral-700 hover:bg-neutral-100"}`}
+              title={page.fullBleed ? "เปิดโครงร่างปกติ" : "เปิดโหมดเต็มหน้า"}
             >
-              {a === "left" ? "ซ้าย" : a === "center" ? "กลาง" : "ขวา"}
+              {page.fullBleed ? "📄 เต็มหน้า" : "📄 เต็มหน้า"}
             </button>
-          ))}
-          <button
-            onClick={() => updateTextBox(page.id, { ...selText, weight: selText.weight === "bold" ? "normal" : "bold" })}
-            className={`rounded px-2 py-1 text-xs font-bold ${selText.weight === "bold" ? "bg-neutral-900 text-white" : "text-neutral-600 hover:bg-neutral-100"}`}
-          >
-            B
-          </button>
-        </>
-      )}
+          </>
+        )}
 
-      {selection && (
-        <>
-          <div className="h-4 w-px bg-neutral-200" />
-          <button onClick={removeSelected} className="rounded px-3 py-1 text-xs font-medium text-red-500 hover:bg-red-50">
-            ลบ
-          </button>
-        </>
+        {selText && (
+          <>
+            <div className="h-4 w-px bg-neutral-200" />
+            {(["left", "center", "right"] as const).map((a) => (
+              <button
+                key={a}
+                onClick={() => updateTextBox(page.id, { ...selText, align: a })}
+                className={`rounded px-2 py-1 text-xs ${selText.align === a ? "bg-neutral-900 text-white" : "text-neutral-600 hover:bg-neutral-100"}`}
+              >
+                {a === "left" ? "ซ้าย" : a === "center" ? "กลาง" : "ขวา"}
+              </button>
+            ))}
+            <button
+              onClick={() => updateTextBox(page.id, { ...selText, weight: selText.weight === "bold" ? "normal" : "bold" })}
+              className={`rounded px-2 py-1 text-xs font-bold ${selText.weight === "bold" ? "bg-neutral-900 text-white" : "text-neutral-600 hover:bg-neutral-100"}`}
+            >
+              B
+            </button>
+          </>
+        )}
+
+        {selection && (
+          <>
+            <div className="h-4 w-px bg-neutral-200" />
+            <button onClick={removeSelected} className="rounded px-3 py-1 text-xs font-medium text-red-500 hover:bg-red-50">
+              ลบ
+            </button>
+          </>
+        )}
+      </div>
+
+      {/* Full bleed crop/zoom controls */}
+      {page && page.fullBleed && (
+        <FullBleedControls
+          cropX={page.cropX ?? 0}
+          cropY={page.cropY ?? 0}
+          zoom={page.zoom ?? 100}
+          onCropXChange={(value) => setCropX(page.id, value)}
+          onCropYChange={(value) => setCropY(page.id, value)}
+          onZoomChange={(value) => setZoom(page.id, value)}
+        />
       )}
     </div>
   );
@@ -223,6 +241,14 @@ function EditablePage({
       {template.slots.map((slot) => {
         const photo = photoById(page.slotFills[slot.id]);
         const isSel = selection?.kind === "slot" && selection.id === slot.id && selection.pageId === page.id;
+
+        // When fullBleed is ON, slot fills entire page
+        const isFullBleed = page.fullBleed === true;
+        const slotX = isFullBleed ? 0 : slot.x;
+        const slotY = isFullBleed ? 0 : slot.y;
+        const slotW = isFullBleed ? 1 : slot.width;
+        const slotH = isFullBleed ? 1 : slot.height;
+
         return (
           <div
             key={slot.id}
@@ -243,13 +269,27 @@ function EditablePage({
               const photoId = e.dataTransfer.getData("photoId");
               if (photoId) fillSlot(page.id, slot.id, photoId);
             }}
-            style={{ position: "absolute", left: slot.x * width, top: slot.y * height, width: slot.width * width, height: slot.height * height }}
+            style={{ position: "absolute", left: slotX * width, top: slotY * height, width: slotW * width, height: slotH * height }}
             className={`group overflow-hidden ${photo ? "" : "border-2 border-dashed border-neutral-300 bg-neutral-100"} ${isSel ? "ring-2 ring-neutral-900" : ""}`}
           >
             {photo ? (
               <>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={photo.previewUrl} alt="" draggable={false} className="h-full w-full object-cover" />
+                <img
+                  src={photo.previewUrl}
+                  alt=""
+                  draggable={false}
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                    objectPosition: "center",
+                    transform: isFullBleed
+                      ? `translate(${(page.cropX ?? 0) / 5}%, ${(page.cropY ?? 0) / 5}%) scale(${(page.zoom ?? 100) / 100})`
+                      : undefined,
+                    transformOrigin: "center",
+                  }}
+                />
                 <button
                   onClick={(e) => { e.stopPropagation(); clearSlot(page.id, slot.id); }}
                   className="absolute right-1 top-1 hidden h-5 w-5 items-center justify-center rounded-full bg-black/60 text-xs text-white group-hover:flex"

@@ -17,6 +17,9 @@ import {
   removeText as removeTextFromPage,
   setBackground as setBackgroundOnPage,
   setFullBleed as setFullBleedOnPage,
+  setCropX as setCropXOnPage,
+  setCropY as setCropYOnPage,
+  setZoom as setZoomOnPage,
 } from "@/lib/editor/layout";
 import { getTemplate } from "@/lib/editor/templates";
 import { uid } from "@/lib/uid";
@@ -90,6 +93,9 @@ interface EditorState {
   applyTemplate: (pageId: string, templateId: string) => void;
   setBackground: (pageId: string, background?: string) => void;
   setFullBleed: (pageId: string, fullBleed: boolean) => void;
+  setCropX: (pageId: string, cropX: number) => void;
+  setCropY: (pageId: string, cropY: number) => void;
+  setZoom: (pageId: string, zoom: number) => void;
 
   // ── Text ──
   addTextBox: (pageId: string) => void;
@@ -252,6 +258,12 @@ export const useEditorStore = create<EditorState>((set, get) => {
       commit(mapPage(pageId, (p) => setBackgroundOnPage(p, background))),
     setFullBleed: (pageId, fullBleed) =>
       commit(mapPage(pageId, (p) => setFullBleedOnPage(p, fullBleed))),
+    setCropX: (pageId, cropX) =>
+      commit(mapPage(pageId, (p) => setCropXOnPage(p, cropX))),
+    setCropY: (pageId, cropY) =>
+      commit(mapPage(pageId, (p) => setCropYOnPage(p, cropY))),
+    setZoom: (pageId, zoom) =>
+      commit(mapPage(pageId, (p) => setZoomOnPage(p, zoom))),
 
     // ── Text ──
     addTextBox: (pageId) => commit(mapPage(pageId, (p) => addTextToPage(p, defaultTextBox()))),

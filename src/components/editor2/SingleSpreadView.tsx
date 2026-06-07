@@ -83,6 +83,7 @@ export default function SingleSpreadView() {
 // ─── Contextual toolbar ───────────────────────────────────────────────────────
 function Toolbar() {
   const layout = useEditorStore((s) => s.layout);
+  const photos = useEditorStore((s) => s.photos);
   const addTextBox = useEditorStore((s) => s.addTextBox);
   const removeSelected = useEditorStore((s) => s.removeSelected);
   const selection = useEditorStore((s) => s.selection);
@@ -98,6 +99,51 @@ function Toolbar() {
       ? page?.texts?.find((t) => t.id === selection.id)
       : undefined;
 
+  /**
+   * Auto-fit image to fill page without white space.
+   * Uses object-fit: cover logic to scale image and remove margins.
+   */
+  const fitImageToPage = () => {
+    if (!page) return;
+
+    // Get the first photo in the current slot (for template-based pages)
+    const slotFills = Object.values(page.slotFills);
+    const photoId = slotFills[0];
+    const photo = photoId ? photos.find((p) => p.id === photoId) : null;
+
+    if (!photo) return;
+
+    // Page aspect ratio (height / width) for portrait orientation
+    const PAGE_ASPECT = 1 / 0.77; // ≈ 1.30 (portrait)
+    const imageAspect = photo.height / photo.width;
+
+    // Calculate scale needed for object-fit: cover behavior
+    // cover_scale = max(pageWidth/imageWidth, pageHeight/imageHeight)
+    // Using aspect ratios: max(1, pageAspect/imageAspect)
+    const coverScale = Math.max(1, PAGE_ASPECT / imageAspect);
+    let requiredZoom = Math.round(coverScale * 100);
+
+    // Clamp zoom to valid range
+    requiredZoom = Math.max(100, Math.min(300, requiredZoom));
+
+    // Set fullBleed with auto-calculated zoom and centered crop
+    setFullBleed(page.id, true);
+    setZoom(page.id, requiredZoom);
+    setCropX(page.id, 0);
+    setCropY(page.id, 0);
+  };
+
+  const handleFullBleedToggle = () => {
+    if (!page) return;
+    if (!page.fullBleed) {
+      // Turning ON: auto-fit the image
+      fitImageToPage();
+    } else {
+      // Turning OFF: just toggle
+      setFullBleed(page.id, false);
+    }
+  };
+
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center gap-2 rounded-full bg-white px-3 py-1.5 shadow-card ring-1 ring-neutral-200">
@@ -109,7 +155,7 @@ function Toolbar() {
           <>
             <div className="h-4 w-px bg-neutral-200" />
             <button
-              onClick={() => setFullBleed(page.id, !page.fullBleed)}
+              onClick={handleFullBleedToggle}
               className={`rounded px-3 py-1 text-xs font-medium ${page.fullBleed ? "bg-neutral-900 text-white" : "text-neutral-700 hover:bg-neutral-100"}`}
               title={page.fullBleed ? "เปิดโครงร่างปกติ" : "เปิดโหมดเต็มหน้า"}
             >

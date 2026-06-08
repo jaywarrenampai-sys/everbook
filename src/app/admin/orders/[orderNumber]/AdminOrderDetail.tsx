@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, FileText, FolderOpen } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Download, FileText, FolderOpen } from "lucide-react";
 import {
   Order, getOrder, updateOrder,
   ALL_ORDER_STATUSES, ORDER_STATUS_LABEL, PAYMENT_STATUS_LABEL,
@@ -10,7 +10,10 @@ import {
 } from "@/lib/orders";
 import { SIZES, COVERS, PAPERS, formatTHB } from "@/lib/pricing";
 import { loadProject } from "@/lib/projects/localProjects";
-import { exportLocalProjectPDF } from "@/lib/pdf/clientExport";
+import { fetchInteriorPDFBytes, fetchCoverPDFBytes, downloadBlob } from "@/lib/pdf/clientExport";
+import { savePrintFile, listPrintFiles, getPrintFileBlob, formatBytes, PrintFileMeta, PrintFileType } from "@/lib/printFiles";
+import { qualityCheck, QualityIssue } from "@/lib/qualityCheck";
+import { normalizeConfig } from "@/lib/pricing";
 
 const PAYMENT_STATES: PaymentStatus[] = ["pending", "paid", "failed", "refunded"];
 
@@ -19,12 +22,16 @@ export default function AdminOrderDetail({ orderNumber }: { orderNumber: string 
   const [notes, setNotes] = useState("");
   const [pdfBusy, setPdfBusy] = useState<string | null>(null);
   const [pdfError, setPdfError] = useState<string | null>(null);
+  const [history, setHistory] = useState<PrintFileMeta[]>([]);
+  const [issues, setIssues] = useState<QualityIssue[] | null>(null);
+  const [checking, setChecking] = useState(false);
 
   useEffect(() => {
     (async () => {
       const o = await getOrder(orderNumber).catch(() => undefined);
       setOrder(o ?? null);
       setNotes(o?.notes ?? "");
+      setHistory(await listPrintFiles(orderNumber).catch(() => []));
     })();
   }, [orderNumber]);
 
@@ -44,22 +51,52 @@ export default function AdminOrderDetail({ orderNumber }: { orderNumber: string 
     if (next) setOrder(next);
   }
 
-  async function generatePDF(coverOnly: boolean) {
+  async function runQualityCheck() {
     if (!order?.projectId) { setPdfError("คำสั่งซื้อนี้ไม่มีโปรเจกต์ในเครื่องนี้"); return; }
+    setChecking(true);
     setPdfError(null);
-    setPdfBusy(coverOnly ? "cover" : "interior");
     try {
       const proj = await loadProject(order.projectId);
       if (!proj) throw new Error("ไม่พบโปรเจกต์ในเครื่องนี้");
-      await exportLocalProjectPDF(proj.layout, proj.photos, {
-        coverOnly,
-        filename: `${order.orderNumber}-${coverOnly ? "cover" : "interior"}.pdf`,
+      setIssues(qualityCheck(proj.layout, proj.photos));
+    } catch (e) {
+      setPdfError(e instanceof Error ? e.message : "ตรวจสอบไม่สำเร็จ");
+    } finally {
+      setChecking(false);
+    }
+  }
+
+  async function generate(type: PrintFileType) {
+    if (!order?.projectId) { setPdfError("คำสั่งซื้อนี้ไม่มีโปรเจกต์ในเครื่องนี้"); return; }
+    setPdfError(null);
+    setPdfBusy(type);
+    try {
+      const proj = await loadProject(order.projectId);
+      if (!proj) throw new Error("ไม่พบโปรเจกต์ในเครื่องนี้");
+      const config = normalizeConfig(proj.layout.productConfig ?? order.config);
+      const bytes =
+        type === "cover"
+          ? await fetchCoverPDFBytes(proj.layout, proj.photos, config)
+          : await fetchInteriorPDFBytes(proj.layout, proj.photos);
+      const meta = await savePrintFile(order.orderNumber, type, bytes);
+      const next = await updateOrder(order.orderNumber, {
+        printFiles: { ...order.printFiles, [type]: meta },
       });
+      if (next) setOrder(next);
+      setHistory(await listPrintFiles(order.orderNumber));
+      // also download the freshly generated file
+      const blob = await getPrintFileBlob(order.orderNumber, type, meta.version);
+      if (blob) downloadBlob(blob, `${order.orderNumber}-${type}-v${meta.version}.pdf`);
     } catch (e) {
       setPdfError(e instanceof Error ? e.message : "สร้าง PDF ไม่สำเร็จ");
     } finally {
       setPdfBusy(null);
     }
+  }
+
+  async function downloadVersion(type: PrintFileType, version: number) {
+    const blob = await getPrintFileBlob(order!.orderNumber, type, version);
+    if (blob) downloadBlob(blob, `${order!.orderNumber}-${type}-v${version}.pdf`);
   }
 
   if (order === undefined) return <Center>กำลังโหลด…</Center>;
@@ -144,18 +181,66 @@ export default function AdminOrderDetail({ orderNumber }: { orderNumber: string 
         </Card>
 
         {/* Print files */}
-        <Card title="ไฟล์สำหรับพิมพ์">
-          <div className="flex flex-col gap-2">
-            <button onClick={() => generatePDF(false)} disabled={pdfBusy !== null}
-              className="inline-flex items-center justify-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground transition-transform hover:-translate-y-0.5 disabled:opacity-50">
-              <FileText className="size-4" /> {pdfBusy === "interior" ? "กำลังสร้าง…" : "ดาวน์โหลด Interior PDF"}
-            </button>
-            <button onClick={() => generatePDF(true)} disabled={pdfBusy !== null}
-              className="inline-flex items-center justify-center gap-2 rounded-full border-2 border-border px-4 py-2.5 text-sm font-bold text-foreground transition-transform hover:-translate-y-0.5 disabled:opacity-50">
-              <FileText className="size-4" /> {pdfBusy === "cover" ? "กำลังสร้าง…" : "ดาวน์โหลด Cover PDF"}
-            </button>
-            {pdfError && <p className="text-xs font-medium text-destructive">{pdfError}</p>}
+        <Card title="ไฟล์สำหรับพิมพ์" full>
+          {/* Quality check */}
+          <div className="mb-4 rounded-2xl bg-secondary/20 p-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-semibold text-foreground">ตรวจสอบคุณภาพก่อนพิมพ์</span>
+              <button onClick={runQualityCheck} disabled={checking}
+                className="rounded-full bg-muted px-3 py-1.5 text-xs font-bold text-foreground hover:bg-secondary disabled:opacity-50">
+                {checking ? "กำลังตรวจ…" : "ตรวจสอบ"}
+              </button>
+            </div>
+            {issues !== null && (
+              issues.length === 0 ? (
+                <p className="mt-2 text-xs font-medium text-mint-foreground">✓ ไม่พบปัญหา พร้อมสร้างไฟล์พิมพ์</p>
+              ) : (
+                <ul className="mt-2 space-y-1">
+                  {issues.map((iss, k) => (
+                    <li key={k} className={`flex items-center gap-1.5 text-xs ${iss.level === "error" ? "text-destructive" : "text-foreground"}`}>
+                      {iss.level === "error" ? <AlertTriangle className="size-3.5" /> : <span>⚠️</span>} {iss.message}
+                    </li>
+                  ))}
+                </ul>
+              )
+            )}
           </div>
+
+          {/* Generate */}
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <button onClick={() => generate("interior")} disabled={pdfBusy !== null}
+              className="inline-flex items-center justify-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground transition-transform hover:-translate-y-0.5 disabled:opacity-50">
+              <FileText className="size-4" /> {pdfBusy === "interior" ? "กำลังสร้าง…" : "สร้าง Interior PDF"}
+            </button>
+            <button onClick={() => generate("cover")} disabled={pdfBusy !== null}
+              className="inline-flex items-center justify-center gap-2 rounded-full border-2 border-border px-4 py-2.5 text-sm font-bold text-foreground transition-transform hover:-translate-y-0.5 disabled:opacity-50">
+              <FileText className="size-4" /> {pdfBusy === "cover" ? "กำลังสร้าง…" : "สร้าง Cover PDF"}
+            </button>
+          </div>
+          {pdfError && <p className="mt-2 text-xs font-medium text-destructive">{pdfError}</p>}
+
+          {/* Version history */}
+          {history.length > 0 && (
+            <div className="mt-4">
+              <p className="mb-2 text-xs font-bold text-muted-foreground">ประวัติไฟล์ (รวม {history.length} เวอร์ชัน)</p>
+              <ul className="space-y-1.5">
+                {history.map((h) => (
+                  <li key={`${h.type}-${h.version}`} className="flex items-center justify-between rounded-xl bg-muted/40 px-3 py-2 text-xs">
+                    <span className="font-semibold text-foreground">
+                      {h.type === "cover" ? "Cover" : "Interior"} · v{h.version}
+                    </span>
+                    <span className="text-muted-foreground">
+                      {new Date(h.createdAt).toLocaleString("th-TH", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })} · {formatBytes(h.size)}
+                    </span>
+                    <button onClick={() => downloadVersion(h.type, h.version)} className="inline-flex items-center gap-1 rounded-full bg-card px-2.5 py-1 font-bold text-foreground hover:bg-secondary">
+                      <Download className="size-3.5" /> โหลด
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          <p className="mt-3 text-xs text-muted-foreground">300 DPI · เผื่อตัดตก 3 มม. · ฝังรูปภาพ • ข้อความไทยบนปกต้องฝังฟอนต์ไทย (กำลังพัฒนา)</p>
         </Card>
 
         {/* Internal notes */}

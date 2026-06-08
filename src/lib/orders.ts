@@ -65,6 +65,11 @@ export interface Order {
   paymentStatus: PaymentStatus;
   orderStatus: OrderStatus;
   notes: string; // internal admin notes
+  /** Latest generated print files (full version history lives in the pdfs store) */
+  printFiles?: {
+    interior?: { version: number; size: number; createdAt: number };
+    cover?: { version: number; size: number; createdAt: number };
+  };
   createdAt: number;
   updatedAt: number;
 }

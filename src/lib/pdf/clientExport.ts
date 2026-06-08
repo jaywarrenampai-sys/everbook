@@ -3,7 +3,52 @@
  * Converts in-memory Object URLs to base64, then calls the preview export API.
  * Used when the user hasn't saved their project yet.
  */
-import { BookLayout, UploadedPhoto } from "@/lib/editor/types";
+import { BookLayout, ProductConfig, UploadedPhoto } from "@/lib/editor/types";
+
+async function encodePhotos(photos: UploadedPhoto[]) {
+  return Promise.all(
+    photos.map(async (p) => ({ id: p.id, dataUrl: await objectUrlToDataUrl(p.previewUrl) }))
+  );
+}
+
+/** Generate the Interior PDF and return its raw bytes (for storage). */
+export async function fetchInteriorPDFBytes(
+  layout: BookLayout,
+  photos: UploadedPhoto[]
+): Promise<Uint8Array> {
+  const res = await fetch("/api/export-pdf-preview", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ layout, photos: await encodePhotos(photos) }),
+  });
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? `Export failed (${res.status})`);
+  return new Uint8Array(await res.arrayBuffer());
+}
+
+/** Generate the wraparound Cover PDF and return its raw bytes. */
+export async function fetchCoverPDFBytes(
+  layout: BookLayout,
+  photos: UploadedPhoto[],
+  config: ProductConfig
+): Promise<Uint8Array> {
+  const res = await fetch("/api/export-cover-preview", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ layout, config, photos: await encodePhotos(photos) }),
+  });
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? `Cover export failed (${res.status})`);
+  return new Uint8Array(await res.arrayBuffer());
+}
+
+/** Download an existing Blob (a stored PDF version). */
+export function downloadBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
 
 async function objectUrlToDataUrl(objectUrl: string): Promise<string> {
   const res = await fetch(objectUrl);

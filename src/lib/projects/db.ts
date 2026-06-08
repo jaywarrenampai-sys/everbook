@@ -4,10 +4,11 @@
 // any backend or login.
 
 const DB_NAME = "everbook";
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 const STORE_PROJECTS = "projects";
 const STORE_PHOTOS = "photos";
 const STORE_ORDERS = "orders";
+const STORE_PDFS = "pdfs";
 
 let dbPromise: Promise<IDBDatabase> | null = null;
 
@@ -31,6 +32,10 @@ function openDB(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains(STORE_ORDERS)) {
         db.createObjectStore(STORE_ORDERS, { keyPath: "orderNumber" });
       }
+      if (!db.objectStoreNames.contains(STORE_PDFS)) {
+        const pdfs = db.createObjectStore(STORE_PDFS, { keyPath: "key" });
+        pdfs.createIndex("orderNumber", "orderNumber", { unique: false });
+      }
     };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
@@ -49,7 +54,7 @@ function wrap<T>(req: IDBRequest<T>): Promise<T> {
   });
 }
 
-export const STORES = { PROJECTS: STORE_PROJECTS, PHOTOS: STORE_PHOTOS, ORDERS: STORE_ORDERS };
+export const STORES = { PROJECTS: STORE_PROJECTS, PHOTOS: STORE_PHOTOS, ORDERS: STORE_ORDERS, PDFS: STORE_PDFS };
 
 export async function idbPut<T>(store: string, value: T): Promise<void> {
   const os = await tx(store, "readwrite");

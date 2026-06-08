@@ -18,6 +18,7 @@ import { UploadedPhoto } from "@/lib/editor/types";
 import { TEMPLATES, getTemplate, TEMPLATE_CATEGORIES } from "@/lib/editor/templates";
 import { COVER_CATEGORIES, COVER_TEMPLATES } from "@/lib/editor/coverTemplates";
 import { uid } from "@/lib/uid";
+import HScroll from "./HScroll";
 
 // ── Library types (from the auto-discovery APIs) ──
 interface LibCategory { id: string; label: string; emoji: string; count: number }
@@ -118,8 +119,6 @@ export default function Sidebar({ onArm }: { onArm?: () => void } = {}) {
   const layout = useEditorStore((s) => s.layout);
 
   const fileRef = useRef<HTMLInputElement>(null);
-  const catScrollRef = useRef<HTMLDivElement>(null);
-  const dragRef = useRef<{ startX: number; startLeft: number } | null>(null);
   const [uploading, setUploading] = useState(false);
 
   // ── Sticker library (lazy / category loading) ──
@@ -255,22 +254,6 @@ export default function Sidebar({ onArm }: { onArm?: () => void } = {}) {
 
   const usedTotal = photos.filter((p) => usageCount(p.id) > 0).length;
   const shown = hideUsed ? photos.filter((p) => usageCount(p.id) === 0) : photos;
-
-  // Desktop: translate vertical mouse-wheel into horizontal scroll on the
-  // category bar. Uses a native non-passive listener so preventDefault works.
-  // Touch devices never fire `wheel`, so mobile swipe scrolling is untouched.
-  useEffect(() => {
-    const el = catScrollRef.current;
-    if (!el) return;
-    const onWheel = (e: WheelEvent) => {
-      if (e.deltaY === 0) return;
-      if (el.scrollWidth <= el.clientWidth) return; // nothing to scroll
-      e.preventDefault();
-      el.scrollLeft += e.deltaY + e.deltaX;
-    };
-    el.addEventListener("wheel", onWheel, { passive: false });
-    return () => el.removeEventListener("wheel", onWheel);
-  }, [activePanel, stickerCats.length, stickerQuery]);
 
   // Stickers shown: search results take precedence, else the active category.
   const shownStickers: LibItem[] = searchResults ?? itemsByCat[stickerCat] ?? [];
@@ -493,22 +476,22 @@ export default function Sidebar({ onArm }: { onArm?: () => void } = {}) {
               </div>
               {/* category chips */}
               {!q && (
-                <div className="no-scrollbar flex gap-1.5 overflow-x-auto border-b border-border/60 p-3">
-                  <button onClick={() => setTmplCat("all")}
+                <HScroll activeKey={tmplCat} className="border-b border-border/60 p-3">
+                  <button onClick={() => setTmplCat("all")} data-active={tmplCat === "all" ? "true" : undefined}
                     className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${tmplCat === "all" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
                     ทั้งหมด
                   </button>
-                  <button onClick={() => setTmplCat("favorites")}
+                  <button onClick={() => setTmplCat("favorites")} data-active={tmplCat === "favorites" ? "true" : undefined}
                     className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${tmplCat === "favorites" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
                     ⭐ รายการโปรด
                   </button>
                   {TEMPLATE_CATEGORIES.map((c) => (
-                    <button key={c.id} onClick={() => setTmplCat(c.id)} title={c.label}
+                    <button key={c.id} onClick={() => setTmplCat(c.id)} title={c.label} data-active={tmplCat === c.id ? "true" : undefined}
                       className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${tmplCat === c.id ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
                       {c.emoji} {c.label}
                     </button>
                   ))}
-                </div>
+                </HScroll>
               )}
               {/* grid */}
               <div className="flex-1 overflow-y-auto p-3">
@@ -560,11 +543,12 @@ export default function Sidebar({ onArm }: { onArm?: () => void } = {}) {
             </div>
 
             {/* Category chips */}
-            <div className="no-scrollbar flex gap-1.5 overflow-x-auto border-b border-border/60 p-3">
+            <HScroll activeKey={coverCat} className="border-b border-border/60 p-3">
               {COVER_CATEGORIES.map((c) => (
                 <button
                   key={c.id}
                   onClick={() => setCoverCat(c.id)}
+                  data-active={coverCat === c.id ? "true" : undefined}
                   className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
                     coverCat === c.id ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
                   }`}
@@ -572,7 +556,7 @@ export default function Sidebar({ onArm }: { onArm?: () => void } = {}) {
                   {c.emoji} {c.label}
                 </button>
               ))}
-            </div>
+            </HScroll>
 
             {/* Design grid */}
             <div className="flex-1 overflow-y-auto p-3">
@@ -654,12 +638,13 @@ export default function Sidebar({ onArm }: { onArm?: () => void } = {}) {
 
             {/* Category chips (hidden while searching) */}
             {!bgQuery.trim() && (
-              <div className="no-scrollbar flex gap-1.5 overflow-x-auto border-b border-border/60 p-3">
+              <HScroll activeKey={bgCat} className="border-b border-border/60 p-3">
                 {bgTabs.map((c) => (
                   <button
                     key={c.id}
                     onClick={() => setBgCat(c.id)}
                     title={c.label}
+                    data-active={bgCat === c.id ? "true" : undefined}
                     className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
                       bgCat === c.id ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
                     }`}
@@ -667,7 +652,7 @@ export default function Sidebar({ onArm }: { onArm?: () => void } = {}) {
                     {c.emoji} {c.label}
                   </button>
                 ))}
-              </div>
+              </HScroll>
             )}
 
             {/* Grid */}
@@ -734,25 +719,13 @@ export default function Sidebar({ onArm }: { onArm?: () => void } = {}) {
 
             {/* Category chips (hidden while searching) */}
             {!stickerQuery.trim() && (
-              <div
-                ref={catScrollRef}
-                onPointerDown={(e) => {
-                  if (e.pointerType !== "mouse") return; // mouse-drag only; keep touch native
-                  dragRef.current = { startX: e.clientX, startLeft: e.currentTarget.scrollLeft };
-                }}
-                onPointerMove={(e) => {
-                  if (!dragRef.current) return;
-                  e.currentTarget.scrollLeft = dragRef.current.startLeft - (e.clientX - dragRef.current.startX);
-                }}
-                onPointerUp={() => { dragRef.current = null; }}
-                onPointerLeave={() => { dragRef.current = null; }}
-                className="flex cursor-grab gap-1.5 overflow-x-auto border-b border-border/60 p-3 active:cursor-grabbing [scrollbar-width:thin]"
-              >
+              <HScroll activeKey={stickerCat} className="border-b border-border/60 p-3">
                 {stickerCats.map((c) => (
                   <button
                     key={c.id}
                     onClick={() => setStickerCat(c.id)}
                     title={c.label}
+                    data-active={stickerCat === c.id ? "true" : undefined}
                     className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
                       stickerCat === c.id ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
                     }`}
@@ -760,7 +733,7 @@ export default function Sidebar({ onArm }: { onArm?: () => void } = {}) {
                     {c.emoji} {c.label}
                   </button>
                 ))}
-              </div>
+              </HScroll>
             )}
 
             {/* Sticker grid */}

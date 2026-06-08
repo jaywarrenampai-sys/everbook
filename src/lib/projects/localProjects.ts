@@ -3,7 +3,7 @@
 // (IndexedDB). No backend or login required. Photo originals are stored as
 // blobs so projects fully restore after refresh or a browser crash.
 
-import { BookLayout, UploadedPhoto } from "@/lib/editor/types";
+import { BookLayout, ProductConfig, UploadedPhoto } from "@/lib/editor/types";
 import { uid } from "@/lib/uid";
 import {
   STORES,
@@ -111,6 +111,26 @@ export async function loadProject(
     height: r.height,
   }));
   return { id: rec.id, name: rec.name, layout: rec.layout, photos };
+}
+
+/** Load just a project's layout + name (no photo blobs) — for the config page. */
+export async function getProjectLayout(
+  id: string
+): Promise<{ id: string; name: string; layout: BookLayout } | null> {
+  const rec = await idbGet<ProjectRecord>(STORES.PROJECTS, id);
+  if (!rec) return null;
+  return { id: rec.id, name: rec.name, layout: rec.layout };
+}
+
+/** Patch a project's product configuration in place (no photo rewrite). */
+export async function updateProjectConfig(id: string, config: ProductConfig): Promise<void> {
+  const rec = await idbGet<ProjectRecord>(STORES.PROJECTS, id);
+  if (!rec) return;
+  await idbPut<ProjectRecord>(STORES.PROJECTS, {
+    ...rec,
+    layout: { ...rec.layout, productConfig: config },
+    updatedAt: Date.now(),
+  });
 }
 
 /** List project summaries, newest first. */

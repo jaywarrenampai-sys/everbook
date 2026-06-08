@@ -139,7 +139,7 @@ export default function EditorClient() {
 
   function goToOrder() {
     const params = new URLSearchParams({ ...(projectId ? { projectId } : {}), pages: String(layout.pages.length) });
-    router.push(`/checkout?${params.toString()}`);
+    router.push(`/configure?${params.toString()}`);
   }
 
   function goToPreview() {

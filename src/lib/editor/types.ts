@@ -101,10 +101,20 @@ export interface BookPage {
   stickers?: Sticker[];
 }
 
+/** Print product configuration chosen before checkout (saved with the book). */
+export interface ProductConfig {
+  size: string;     // SIZES id
+  cover: string;    // COVERS id
+  paper: string;    // PAPERS id
+  quantity: number;
+}
+
 /** The full editor state — this is what gets saved to / loaded from the DB */
 export interface BookLayout {
   pages: BookPage[];
   currentPageIndex: number;
+  /** Print product configuration (additive — older projects may omit) */
+  productConfig?: ProductConfig;
 }
 
 export type ResizeHandle = "se" | "sw" | "ne" | "nw";

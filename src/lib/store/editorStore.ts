@@ -120,7 +120,7 @@ interface EditorState {
   reorderPages: (from: number, to: number) => void;
 
   // ── Smart features ──
-  smartCreate: () => void;
+  smartCreate: (opts?: AutoBookOptions) => void;
   autofill: () => void;
 
   // ── Bulk load (from saved project) ──
@@ -151,41 +151,93 @@ function snapshot(layout: BookLayout): BookLayout {
   return structuredClone(layout);
 }
 
-/**
- * Plan a sequence of photos-per-page for the AI auto layout.
- * Mixes 1 / 2 / 3 / 4-photo pages, avoids repeating the same density back to
- * back, and clamps the final page to whatever photos remain (no empty pages).
- */
-function planLayoutSizes(n: number): number[] {
-  if (n <= 0) return [];
-  // Rotation of densities — varied, no long runs of the same size.
-  const cycle = [1, 3, 2, 4, 2, 1, 4, 3];
-  const sizes: number[] = [];
-  let remaining = n;
-  let ci = 0;
-  let last = -1;
-  while (remaining > 0) {
-    let size = cycle[ci % cycle.length];
-    ci++;
-    if (size === last) {
-      // avoid two identical densities in a row
-      size = cycle[ci % cycle.length];
-      ci++;
-    }
-    if (size > remaining) size = remaining; // last page fits exactly
-    sizes.push(size);
-    remaining -= size;
-    last = size;
-  }
-  return sizes;
+/** Options for the AI auto book creation. */
+export interface AutoBookOptions {
+  /** Backgrounds (hex colours or image srcs) rotated across content pages. */
+  backgrounds?: string[];
+  /** Stickers to sprinkle subtly across some pages. */
+  stickers?: { stickerId: string; category: string; src: string }[];
 }
 
-/** Map a photos-per-page count to a template id (alternating the 2-up style). */
-function templateForSize(size: number, twoIndex: number): string {
-  if (size <= 1) return "full";
-  if (size === 2) return twoIndex % 2 === 0 ? "two-v" : "two-h";
-  if (size === 3) return "feature-left";
-  return "four-grid";
+type Orient = "land" | "port" | "square";
+function orientOf(p: UploadedPhoto): Orient {
+  const r = p.width / p.height;
+  if (r >= 1.2) return "land";
+  if (r <= 0.83) return "port";
+  return "square";
+}
+
+/** Place a small decorative sticker in a rotating corner. */
+function cornerSticker(idx: number, s: { stickerId: string; category: string; src: string }) {
+  const corners = [
+    { x: 0.04, y: 0.04, rot: -8 },
+    { x: 0.78, y: 0.04, rot: 8 },
+    { x: 0.04, y: 0.82, rot: 6 },
+    { x: 0.78, y: 0.82, rot: -6 },
+  ];
+  const c = corners[idx % corners.length];
+  const width = 0.14;
+  return {
+    id: uid(), stickerId: s.stickerId, category: s.category, src: s.src,
+    x: c.x, y: c.y, width, height: width * 0.7071, rotation: c.rot, zIndex: 1,
+  };
+}
+
+/**
+ * Orientation-aware auto layout: walks the photos and emits varied content
+ * pages (full-bleed / 2-up / 3-up / collage), preferring layouts that suit
+ * each photo's orientation, never repeating the same template back-to-back,
+ * and filling every page (no empties). Pure array work → fast for 300+ photos.
+ */
+function planContentPages(rest: UploadedPhoto[]): BookPage[] {
+  const pages: BookPage[] = [];
+  const rotation = ["full", "collage", "pair", "trio", "full", "pair"];
+  let i = 0, ri = 0, last = "";
+  while (i < rest.length) {
+    const remaining = rest.length - i;
+    const o = orientOf(rest[i]);
+    let intent = rotation[ri % rotation.length]; ri++;
+
+    // orientation nudges
+    if (o === "square" && remaining >= 4) intent = "collage";
+    else if (o === "port" && remaining >= 2 && intent === "full") intent = "pair";
+    else if (o === "land" && intent === "trio" && remaining >= 2) intent = "pair";
+
+    let templateId = "full", count = 1, fullBleed = false;
+    if (intent === "pair" && remaining >= 2) {
+      count = 2;
+      const o2 = orientOf(rest[i + 1]);
+      templateId = o === "land" && o2 === "land" ? "two-h" : "two-v";
+    } else if (intent === "trio" && remaining >= 3) {
+      count = 3; templateId = "feature-left";
+    } else if (intent === "collage" && remaining >= 4) {
+      count = 4; templateId = "four-grid";
+    } else {
+      count = 1; templateId = "full"; fullBleed = o !== "port"; // wide/square → edge-to-edge
+    }
+
+    // avoid the same template twice in a row
+    if (templateId === last && remaining > count) {
+      if (templateId === "full" && remaining >= 2) { templateId = "two-v"; count = 2; fullBleed = false; }
+      else if (remaining >= 4) { templateId = "four-grid"; count = 4; fullBleed = false; }
+      else { templateId = "full"; count = 1; }
+    }
+
+    count = Math.min(count, remaining);
+    const page = newPage(templateId);
+    const slots = getTemplate(templateId).slots;
+    const used: string[] = [];
+    slots.forEach((slot, k) => {
+      const ph = rest[i + k];
+      if (ph) { page.slotFills[slot.id] = ph.id; used.push(ph.id); }
+    });
+    page.images = used;
+    if (fullBleed) page.fullBleed = true;
+    pages.push(page);
+    last = templateId;
+    i += count;
+  }
+  return pages;
 }
 
 // ─── Store ────────────────────────────────────────────────────────────────────
@@ -374,43 +426,43 @@ export const useEditorStore = create<EditorState>((set, get) => {
         return next;
       }),
 
-    // ── AI auto layout ──
-    smartCreate: () => {
+    // ── AI auto book creation ──
+    smartCreate: (opts = {}) => {
       const { photos } = get();
       if (photos.length === 0) return;
       commit(() => {
-        const pages: BookPage[] = [];
-
-        // Cover — first photo, full bleed feel
+        // Cover — strongest photo (largest pixel area), full bleed + title
+        const strongest = photos.reduce((a, b) => (b.width * b.height > a.width * a.height ? b : a), photos[0]);
         const cover = newPage("full");
         cover.isCover = true;
-        cover.slotFills = { s0: photos[0].id };
-        cover.images = [photos[0].id];
-        pages.push(cover);
+        cover.fullBleed = true;
+        cover.slotFills = { s0: strongest.id };
+        cover.images = [strongest.id];
+        cover.texts = [{
+          id: uid(), text: "My Photo Book",
+          x: 0.1, y: 0.66, width: 0.8, fontSize: 0.075,
+          align: "center", weight: "bold", color: "#ffffff", role: "title",
+        }];
 
-        // Distribute the rest across varied content pages (no empty pages)
-        const rest = photos.slice(1);
-        const sizes = planLayoutSizes(rest.length);
-        let idx = 0;
-        let twoIndex = 0;
-        for (const size of sizes) {
-          const tmplId = templateForSize(size, twoIndex);
-          if (size === 2) twoIndex++;
-          const page = newPage(tmplId);
-          const slots = getTemplate(tmplId).slots;
-          const used: string[] = [];
-          slots.forEach((slot, k) => {
-            const ph = rest[idx + k];
-            if (ph) {
-              page.slotFills[slot.id] = ph.id;
-              used.push(ph.id);
-            }
+        // Content pages from the remaining photos (orientation-aware, varied)
+        const rest = photos.filter((p) => p.id !== strongest.id);
+        const content = planContentPages(rest);
+
+        // Optional auto backgrounds (skip full-bleed pages where the photo fills)
+        if (opts.backgrounds?.length) {
+          content.forEach((pg, idx) => {
+            if (!pg.fullBleed) pg.background = opts.backgrounds![idx % opts.backgrounds!.length];
           });
-          page.images = used;
-          pages.push(page);
-          idx += size;
         }
-        return pages;
+
+        // Optional subtle auto stickers (~every 3rd page)
+        if (opts.stickers?.length) {
+          content.forEach((pg, idx) => {
+            if (idx % 3 === 2) pg.stickers = [cornerSticker(idx, opts.stickers![idx % opts.stickers!.length])];
+          });
+        }
+
+        return [cover, ...content];
       });
     },
     autofill: () => {

@@ -142,6 +142,10 @@ export default function Sidebar({ onArm }: { onArm?: () => void } = {}) {
   // ── Cover template picker ──
   const [coverCat, setCoverCat] = useState<string>("family");
 
+  // ── AI auto-create options ──
+  const [autoBg, setAutoBg] = useState<"none" | "pastel" | "scrapbook" | "watercolor">("none");
+  const [autoStickers, setAutoStickers] = useState(false);
+
   // Load category list once, the first time the Stickers panel is opened.
   useEffect(() => {
     if (activePanel !== "stickers" || stickerCats.length > 0) return;
@@ -258,6 +262,28 @@ export default function Sidebar({ onArm }: { onArm?: () => void } = {}) {
     onArm?.();
   }
 
+  // ── AI auto book creation: gather options then build ──
+  const AUTO_PASTEL = [
+    "#fce4ec", "#ffe3c2", "#fff3bf", "#e6fcf5", "#d3f9d8",
+    "#d0ebff", "#e5dbff", "#ffe8cc", "#f8d7e3", "#e0f7fa",
+  ];
+  async function runAutoCreate() {
+    const opts: { backgrounds?: string[]; stickers?: { stickerId: string; category: string; src: string }[] } = {};
+    if (autoBg === "pastel") {
+      opts.backgrounds = AUTO_PASTEL;
+    } else if (autoBg === "scrapbook" || autoBg === "watercolor") {
+      const cat = autoBg === "scrapbook" ? "scrapbook-paper" : "watercolor";
+      const d = await fetch(`/api/backgrounds/${cat}`).then((r) => r.json()).catch(() => ({ backgrounds: [] }));
+      opts.backgrounds = (d.backgrounds ?? []).map((b: LibItem) => b.src);
+    }
+    if (autoStickers) {
+      const d = await fetch(`/api/stickers/scrapbook-essentials`).then((r) => r.json()).catch(() => ({ stickers: [] }));
+      opts.stickers = (d.stickers ?? []).map((s: LibItem) => ({ stickerId: s.id, category: s.category, src: s.src }));
+    }
+    smartCreate(opts);
+    onArm?.();
+  }
+
   // Apply a background (hex colour or image src) to current page or all pages.
   function applyBackground(value?: string) {
     if (bgScope === "all") setBackgroundAll(value);
@@ -315,24 +341,44 @@ export default function Sidebar({ onArm }: { onArm?: () => void } = {}) {
                 {uploading ? "กำลังอัปโหลด..." : "อัปโหลดรูปภาพ"}
               </button>
 
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={smartCreate}
-                  disabled={photos.length === 0}
-                  className="inline-flex items-center justify-center gap-1.5 rounded-2xl bg-sky px-3 py-2.5 text-xs font-bold text-sky-foreground transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:translate-y-0"
-                >
-                  <Sparkles className="size-3.5" />
-                  สร้างหนังสืออัตโนมัติ
-                </button>
-                <button
-                  onClick={autofill}
-                  disabled={photos.length === 0}
-                  className="inline-flex items-center justify-center gap-1.5 rounded-2xl bg-mint px-3 py-2.5 text-xs font-bold text-mint-foreground transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:translate-y-0"
-                >
-                  <ImagePlus className="size-3.5" />
-                  เติมรูปอัตโนมัติ
-                </button>
+              <button
+                onClick={runAutoCreate}
+                disabled={photos.length === 0}
+                className="inline-flex w-full items-center justify-center gap-1.5 rounded-2xl bg-sky px-3 py-2.5 text-xs font-bold text-sky-foreground transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:translate-y-0"
+              >
+                <Sparkles className="size-3.5" />
+                สร้างหนังสืออัตโนมัติ
+              </button>
+
+              {/* AI options */}
+              <div className="flex items-center justify-between gap-2 rounded-2xl bg-secondary/20 px-2.5 py-2 text-xs">
+                <div className="flex items-center gap-1.5">
+                  <span className="font-medium text-muted-foreground">พื้นหลัง</span>
+                  <select
+                    value={autoBg}
+                    onChange={(e) => setAutoBg(e.target.value as typeof autoBg)}
+                    className="rounded-full border border-border bg-background px-2 py-1 font-semibold text-foreground"
+                  >
+                    <option value="none">ไม่มี</option>
+                    <option value="pastel">พาสเทล</option>
+                    <option value="scrapbook">สแครป</option>
+                    <option value="watercolor">สีน้ำ</option>
+                  </select>
+                </div>
+                <label className="flex cursor-pointer items-center gap-1.5 font-medium text-muted-foreground">
+                  <input type="checkbox" checked={autoStickers} onChange={(e) => setAutoStickers(e.target.checked)} className="accent-primary" />
+                  สติกเกอร์
+                </label>
               </div>
+
+              <button
+                onClick={autofill}
+                disabled={photos.length === 0}
+                className="inline-flex w-full items-center justify-center gap-1.5 rounded-2xl bg-mint px-3 py-2.5 text-xs font-bold text-mint-foreground transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:translate-y-0"
+              >
+                <ImagePlus className="size-3.5" />
+                เติมรูปอัตโนมัติ
+              </button>
 
               {/* Hide used */}
               <div className="flex items-center justify-between text-xs font-medium text-muted-foreground">

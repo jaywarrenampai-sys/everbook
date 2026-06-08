@@ -5,10 +5,10 @@ import { useEditorStore } from "@/lib/store/editorStore";
 import { useIsMobile } from "@/lib/useIsMobile";
 import { BookPage, UploadedPhoto } from "@/lib/editor/types";
 import { getTemplate } from "@/lib/editor/templates";
-import { clampPlacement, clamp } from "@/lib/editor/layout";
+import { clampPlacement, clamp, PAGE_H_OVER_W } from "@/lib/editor/layout";
 import FullBleedControls from "./FullBleedControls";
 
-const ASPECT = 1 / 0.77; // height / width (portrait 8.5:11)
+const ASPECT = PAGE_H_OVER_W; // height / width — true portrait A4 (297/210)
 
 // ── Spread index math (mirrors PageGrid.buildSpreads) ──
 function spreadFor(pageIndex: number, total: number) {
@@ -113,8 +113,8 @@ function Toolbar() {
 
     if (!photo) return;
 
-    // Page aspect ratio (height / width) for portrait orientation
-    const PAGE_ASPECT = 1 / 0.77; // ≈ 1.30 (portrait)
+    // Page aspect ratio (height / width) for portrait A4
+    const PAGE_ASPECT = ASPECT; // 297/210 ≈ 1.4142
     const imageAspect = photo.height / photo.width;
 
     // Calculate scale needed for object-fit: cover behavior

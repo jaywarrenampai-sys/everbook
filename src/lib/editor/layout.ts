@@ -6,11 +6,19 @@ import { BookPage, PlacedPhoto, TextBox, Sticker } from "./types";
 import { uid } from "@/lib/uid";
 import { getTemplate } from "./templates";
 
-/** Book page aspect ratio (width / height).
- *  Placeholder: A4 landscape = 297mm / 210mm ≈ 1.4143
- *  UPDATE this once the real print spec is confirmed with the printer.
- */
-export const PAGE_ASPECT_RATIO = 297 / 210; // ~1.4143  (width / height)
+/** ─── A4 page geometry — single source of truth ──────────────────────────
+ *  Every page is portrait A4. The editor canvas, preview, grid thumbnails and
+ *  print PDF all derive their proportions from these constants so what the
+ *  user sees matches the printed book on every device. */
+export const PAGE_W_MM = 210; // portrait A4 width
+export const PAGE_H_MM = 297; // portrait A4 height
+
+/** width / height — portrait A4 = 210/297 ≈ 0.7071 */
+export const PAGE_ASPECT_RATIO = PAGE_W_MM / PAGE_H_MM;
+
+/** height / width — portrait A4 = 297/210 ≈ 1.4142.
+ *  Multiply a page's pixel width by this to get its pixel height. */
+export const PAGE_H_OVER_W = PAGE_H_MM / PAGE_W_MM;
 
 /** Minimum placement size as a fraction of page dimension */
 export const MIN_PLACEMENT_SIZE = 0.08;
@@ -210,9 +218,9 @@ export function setZoom(page: BookPage, zoom: number): BookPage {
 
 // ─── Stickers ──────────────────────────────────────────────────────────────
 
-/** Page width / height ratio for the portrait editor page (0.77).
+/** Page width / height ratio (portrait A4 ≈ 0.7071).
  *  Used to keep square stickers visually square across the fraction system. */
-const STICKER_PAGE_W_OVER_H = 0.77;
+const STICKER_PAGE_W_OVER_H = PAGE_ASPECT_RATIO;
 
 /** Create a sticker placement. Default ~120px feel: 22% of page width,
  *  height adjusted so the square SVG stays square. Centred unless x/y given. */

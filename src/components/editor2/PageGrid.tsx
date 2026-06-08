@@ -5,9 +5,10 @@ import { motion } from "framer-motion";
 import { useEditorStore } from "@/lib/store/editorStore";
 import { BookPage } from "@/lib/editor/types";
 import PageCanvas from "./PageCanvas";
+import { PAGE_H_OVER_W } from "@/lib/editor/layout";
 
 const PW = 110;
-const PH = Math.round(PW / 0.77); // portrait 8.5:11
+const PH = Math.round(PW * PAGE_H_OVER_W); // true portrait A4 (297/210)
 
 interface Spread {
   label: string;

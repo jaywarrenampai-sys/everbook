@@ -119,6 +119,8 @@ export default function Sidebar({ onArm }: { onArm?: () => void } = {}) {
   const layout = useEditorStore((s) => s.layout);
 
   const fileRef = useRef<HTMLInputElement>(null);
+  const catScrollRef = useRef<HTMLDivElement>(null);
+  const dragRef = useRef<{ startX: number; startLeft: number } | null>(null);
   const [uploading, setUploading] = useState(false);
 
   // ── Sticker library (lazy / category loading) ──
@@ -184,6 +186,22 @@ export default function Sidebar({ onArm }: { onArm?: () => void } = {}) {
 
   const usedTotal = photos.filter((p) => usageCount(p.id) > 0).length;
   const shown = hideUsed ? photos.filter((p) => usageCount(p.id) === 0) : photos;
+
+  // Desktop: translate vertical mouse-wheel into horizontal scroll on the
+  // category bar. Uses a native non-passive listener so preventDefault works.
+  // Touch devices never fire `wheel`, so mobile swipe scrolling is untouched.
+  useEffect(() => {
+    const el = catScrollRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      if (e.deltaY === 0) return;
+      if (el.scrollWidth <= el.clientWidth) return; // nothing to scroll
+      e.preventDefault();
+      el.scrollLeft += e.deltaY + e.deltaX;
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [activePanel, stickerCats.length, stickerQuery]);
 
   // Stickers shown: search results take precedence, else the active category.
   const shownStickers: StickerItem[] = searchResults ?? itemsByCat[stickerCat] ?? [];
@@ -329,7 +347,7 @@ export default function Sidebar({ onArm }: { onArm?: () => void } = {}) {
                       active ? "border-primary bg-primary/5" : "border-border bg-background"
                     }`}
                   >
-                    <div className="relative w-full overflow-hidden rounded-lg border border-border bg-muted" style={{ aspectRatio: "0.77" }}>
+                    <div className="relative w-full overflow-hidden rounded-lg border border-border bg-muted" style={{ aspectRatio: "210 / 297" }}>
                       {def.slots.map((slot) => (
                         <div
                           key={slot.id}
@@ -384,7 +402,20 @@ export default function Sidebar({ onArm }: { onArm?: () => void } = {}) {
 
             {/* Category chips (hidden while searching) */}
             {!stickerQuery.trim() && (
-              <div className="no-scrollbar flex gap-1.5 overflow-x-auto border-b border-border/60 p-3">
+              <div
+                ref={catScrollRef}
+                onPointerDown={(e) => {
+                  if (e.pointerType !== "mouse") return; // mouse-drag only; keep touch native
+                  dragRef.current = { startX: e.clientX, startLeft: e.currentTarget.scrollLeft };
+                }}
+                onPointerMove={(e) => {
+                  if (!dragRef.current) return;
+                  e.currentTarget.scrollLeft = dragRef.current.startLeft - (e.clientX - dragRef.current.startX);
+                }}
+                onPointerUp={() => { dragRef.current = null; }}
+                onPointerLeave={() => { dragRef.current = null; }}
+                className="flex cursor-grab gap-1.5 overflow-x-auto border-b border-border/60 p-3 active:cursor-grabbing [scrollbar-width:thin]"
+              >
                 {stickerCats.map((c) => (
                   <button
                     key={c.id}

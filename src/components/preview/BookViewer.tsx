@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { BookLayout, UploadedPhoto } from "@/lib/editor/types";
+import { PAGE_H_OVER_W } from "@/lib/editor/layout";
 import PageCanvas from "@/components/editor2/PageCanvas";
 
 interface Props {
@@ -28,8 +29,8 @@ export default function BookViewer({
   const dragStartRef = useRef<{ x: number; y: number } | null>(null);
   const [pageWidth, setPageWidth] = useState(340);
 
-  // Calculate page height based on aspect ratio
-  const ASPECT = 1 / 0.77; // height / width (portrait 8.5:11)
+  // Calculate page height based on aspect ratio — true portrait A4
+  const ASPECT = PAGE_H_OVER_W; // height / width (297/210)
   const pageHeight = Math.round(pageWidth * ASPECT);
 
   // Handle window resize

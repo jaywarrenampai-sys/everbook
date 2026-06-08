@@ -6,7 +6,7 @@
  * not match what the customer designed. Keep them in sync.
  *
  * ⚠️  PRINT SPEC PLACEHOLDERS — confirm with your printer before going live:
- *   - Page size:    A4 landscape (297 × 210 mm)   ← confirm
+ *   - Page size:    A4 portrait (210 × 297 mm)    ← confirm
  *   - Bleed:        3 mm each edge                ← confirm
  *   - Safe margin:  5 mm inside trim              ← confirm
  *   - Resolution:   300 DPI minimum               ← confirmed (enforce on upload)
@@ -35,9 +35,9 @@ function parseFill(hex: string): { color: ReturnType<typeof rgb>; opacity: numbe
 // ── Print constants ───────────────────────────────────────────────────────────
 const MM_TO_PT = 2.83465;   // 1 mm = 2.83465 points (PostScript points)
 
-// ⚠️ PLACEHOLDER — confirm these with your printer
-const PAGE_W_MM  = 297;     // trim width
-const PAGE_H_MM  = 210;     // trim height
+// Portrait A4 — matches the editor/preview page proportions (210 × 297 mm)
+const PAGE_W_MM  = 210;     // trim width
+const PAGE_H_MM  = 297;     // trim height
 const BLEED_MM   = 3;       // bleed on each edge
 const SAFE_MM    = 5;       // safe margin inside trim (for reference only — templates enforce this)
 
@@ -331,7 +331,7 @@ function collectPhotoIds(layout: BookLayout): string[] {
 
 // Export print spec for reference / display in UI
 export const PRINT_SPEC = {
-  pageSizeMm:    `${PAGE_W_MM} × ${PAGE_H_MM} mm (A4 landscape)`,
+  pageSizeMm:    `${PAGE_W_MM} × ${PAGE_H_MM} mm (A4 portrait)`,
   bleedMm:       `${BLEED_MM} mm`,
   safeMarginMm:  `${SAFE_MM} mm`,
   resolution:    "300 DPI minimum",

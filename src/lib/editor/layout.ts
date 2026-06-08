@@ -5,6 +5,7 @@
 import { BookPage, PlacedPhoto, TextBox, Sticker } from "./types";
 import { uid } from "@/lib/uid";
 import { getTemplate } from "./templates";
+import { getCoverTemplate } from "./coverTemplates";
 
 /** ─── A4 page geometry — single source of truth ──────────────────────────
  *  Every page is portrait A4. The editor canvas, preview, grid thumbnails and
@@ -106,6 +107,51 @@ export function applyTemplate(page: BookPage, templateId: string): BookPage {
     cropX: page.cropX,
     cropY: page.cropY,
     zoom: page.zoom,
+  };
+}
+
+/** Apply a cover design to a page WITHOUT deleting any content.
+ *  - photos: remapped to the new frame template (preserves images[])
+ *  - text:   free text kept; role text repositioned/restyled, content preserved
+ *  - background: design bg applied only if the page has none (never deletes)
+ *  - stickers: untouched */
+export function applyCoverTemplate(page: BookPage, coverTemplateId: string): BookPage {
+  const def = getCoverTemplate(coverTemplateId);
+  if (!def) return page;
+
+  // 1. Photo frames — reuse the standard remap (keeps images[], remaps by index)
+  const withFrames = applyTemplate(page, def.templateId);
+
+  // 2. Text — keep free text, restyle role text while preserving typed content
+  const existing = withFrames.texts ?? [];
+  const freeText = existing.filter((t) => !t.role);
+  const byRole = new Map(existing.filter((t) => t.role).map((t) => [t.role, t] as const));
+  const definedRoles = new Set(def.texts.map((t) => t.role));
+
+  const roleText: TextBox[] = def.texts.map((ct) => {
+    const prev = byRole.get(ct.role);
+    return {
+      id: prev?.id ?? uid(),
+      text: prev?.text ?? ct.placeholder,
+      x: ct.x,
+      y: ct.y,
+      width: ct.width,
+      fontSize: ct.fontSize,
+      align: ct.align,
+      weight: ct.weight,
+      color: ct.color,
+      role: ct.role,
+    };
+  });
+  // Preserve role text whose role this design doesn't define
+  const orphanRoleText = existing.filter((t) => t.role && !definedRoles.has(t.role));
+
+  return {
+    ...withFrames,
+    isCover: true,
+    coverTemplateId: def.id,
+    texts: [...freeText, ...orphanRoleText, ...roleText],
+    background: withFrames.background ?? def.background,
   };
 }
 

@@ -20,6 +20,7 @@ import {
   setCropX as setCropXOnPage,
   setCropY as setCropYOnPage,
   setZoom as setZoomOnPage,
+  applyCoverTemplate as applyCoverTemplateToPage,
   defaultSticker,
   addSticker as addStickerToPage,
   updateSticker as updateStickerOnPage,
@@ -31,7 +32,7 @@ import { uid } from "@/lib/uid";
 // ─── Types ──────────────────────────────────────────────────────────────────
 
 export type ViewMode = "grid" | "single";
-export type Panel = "images" | "templates" | "layouts" | "backgrounds" | "stickers";
+export type Panel = "images" | "templates" | "layouts" | "backgrounds" | "stickers" | "covers";
 export type SaveState = "idle" | "saving" | "saved" | "error";
 
 /** A selected element on the canvas */
@@ -95,6 +96,7 @@ interface EditorState {
   updatePlacement: (pageId: string, placement: PlacedPhoto) => void;
   removeSelected: () => void;
   applyTemplate: (pageId: string, templateId: string) => void;
+  applyCoverTemplate: (pageId: string, coverTemplateId: string) => void;
   setBackground: (pageId: string, background?: string) => void;
   setBackgroundAll: (background?: string) => void;
   setFullBleed: (pageId: string, fullBleed: boolean) => void;
@@ -265,6 +267,8 @@ export const useEditorStore = create<EditorState>((set, get) => {
     },
     applyTemplate: (pageId, templateId) =>
       commit(mapPage(pageId, (p) => applyTemplateToPage(p, templateId))),
+    applyCoverTemplate: (pageId, coverTemplateId) =>
+      commit(mapPage(pageId, (p) => applyCoverTemplateToPage(p, coverTemplateId))),
     setBackground: (pageId, background) =>
       commit(mapPage(pageId, (p) => setBackgroundOnPage(p, background))),
     setBackgroundAll: (background) =>

@@ -39,6 +39,8 @@ export interface TextBox {
   align: "left" | "center" | "right";
   weight: "normal" | "bold";
   color: string;        // hex
+  /** Cover role — lets cover templates reposition/restyle it while keeping text */
+  role?: "title" | "subtitle" | "date" | "author";
 }
 
 /** A decorative sticker placed on a page.
@@ -85,6 +87,8 @@ export interface BookPage {
   background?: string;
   /** Marks the front-cover page so the cover editor can treat it specially */
   isCover?: boolean;
+  /** Which cover design is applied (for picker highlight; additive) */
+  coverTemplateId?: string;
   /** Full bleed mode: remove all margins/borders so images go edge-to-edge */
   fullBleed?: boolean;
   /** Horizontal crop offset (-100 to +100, center = 0) when fullBleed is ON */

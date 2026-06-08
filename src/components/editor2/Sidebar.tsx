@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
+  BookImage,
   ImageIcon,
   ImagePlus,
   Layout,
@@ -15,6 +16,7 @@ import {
 import { useEditorStore, Panel } from "@/lib/store/editorStore";
 import { UploadedPhoto } from "@/lib/editor/types";
 import { TEMPLATES, getTemplate } from "@/lib/editor/templates";
+import { COVER_CATEGORIES, COVER_TEMPLATES } from "@/lib/editor/coverTemplates";
 import { uid } from "@/lib/uid";
 
 // ── Library types (from the auto-discovery APIs) ──
@@ -55,6 +57,7 @@ const RAIL: { id: Panel; label: string; icon: React.ReactNode; color: keyof type
   { id: "images", label: "รูปภาพ", color: "peach", icon: <ImageIcon className="size-5" /> },
   { id: "templates", label: "เทมเพลต", color: "sky", icon: <LayoutGrid className="size-5" /> },
   { id: "layouts", label: "เลย์เอาต์", color: "mint", icon: <Layout className="size-5" /> },
+  { id: "covers", label: "ปก", color: "sky", icon: <BookImage className="size-5" /> },
   { id: "backgrounds", label: "พื้นหลัง", color: "butter", icon: <Palette className="size-5" /> },
   { id: "stickers", label: "สติกเกอร์", color: "peach", icon: <Smile className="size-5" /> },
 ];
@@ -106,9 +109,12 @@ export default function Sidebar({ onArm }: { onArm?: () => void } = {}) {
   const smartCreate = useEditorStore((s) => s.smartCreate);
   const autofill = useEditorStore((s) => s.autofill);
   const applyTemplate = useEditorStore((s) => s.applyTemplate);
+  const applyCoverTemplate = useEditorStore((s) => s.applyCoverTemplate);
   const setBackground = useEditorStore((s) => s.setBackground);
   const setBackgroundAll = useEditorStore((s) => s.setBackgroundAll);
   const addSticker = useEditorStore((s) => s.addSticker);
+  const goToPage = useEditorStore((s) => s.goToPage);
+  const setViewMode = useEditorStore((s) => s.setViewMode);
   const layout = useEditorStore((s) => s.layout);
 
   const fileRef = useRef<HTMLInputElement>(null);
@@ -132,6 +138,9 @@ export default function Sidebar({ onArm }: { onArm?: () => void } = {}) {
   const [bgResults, setBgResults] = useState<LibItem[] | null>(null);
   const [bgLoading, setBgLoading] = useState(false);
   const [bgScope, setBgScope] = useState<"current" | "all">("current");
+
+  // ── Cover template picker ──
+  const [coverCat, setCoverCat] = useState<string>("family");
 
   // Load category list once, the first time the Stickers panel is opened.
   useEffect(() => {
@@ -254,6 +263,19 @@ export default function Sidebar({ onArm }: { onArm?: () => void } = {}) {
     if (bgScope === "all") setBackgroundAll(value);
     else if (currentPage) setBackground(currentPage.id, value);
   }
+
+  // Apply a cover design to the cover page (page 0 / isCover) and jump to it.
+  function applyCover(coverId: string) {
+    const coverIdx = layout.pages.findIndex((p) => p.isCover);
+    const idx = coverIdx >= 0 ? coverIdx : 0;
+    const coverPage = layout.pages[idx];
+    if (!coverPage) return;
+    applyCoverTemplate(coverPage.id, coverId);
+    goToPage(idx);
+    setViewMode("single");
+    onArm?.();
+  }
+  const shownCovers = COVER_TEMPLATES.filter((c) => c.category === coverCat);
 
   // Tabs for the background panel: Solid Colors (special) + discovered file cats.
   const bgTabs: LibCategory[] = [
@@ -410,6 +432,72 @@ export default function Sidebar({ onArm }: { onArm?: () => void } = {}) {
                   </button>
                 );
               })}
+            </div>
+          </div>
+        )}
+
+        {/* ── COVER TEMPLATES ── */}
+        {activePanel === "covers" && (
+          <div className="flex flex-1 flex-col overflow-hidden">
+            <div className="border-b border-border/60 p-3">
+              <h2 className="font-heading text-base font-bold text-foreground">ปกหนังสือ</h2>
+              <p className="text-xs text-muted-foreground">เลือกดีไซน์ปก — รูป ข้อความ สติกเกอร์ และพื้นหลังจะถูกเก็บไว้</p>
+            </div>
+
+            {/* Category chips */}
+            <div className="no-scrollbar flex gap-1.5 overflow-x-auto border-b border-border/60 p-3">
+              {COVER_CATEGORIES.map((c) => (
+                <button
+                  key={c.id}
+                  onClick={() => setCoverCat(c.id)}
+                  className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
+                    coverCat === c.id ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                  }`}
+                >
+                  {c.emoji} {c.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Design grid */}
+            <div className="flex-1 overflow-y-auto p-3">
+              <div className="grid grid-cols-2 gap-2.5">
+                {shownCovers.map((def) => {
+                  const slots = getTemplate(def.templateId).slots;
+                  const isImg = !!def.background && def.background.startsWith("/");
+                  const active = currentPage?.coverTemplateId === def.id;
+                  return (
+                    <button
+                      key={def.id}
+                      onClick={() => applyCover(def.id)}
+                      className={`flex flex-col items-center gap-2 rounded-2xl border-2 p-2 transition-all hover:-translate-y-0.5 ${
+                        active ? "border-primary bg-primary/5" : "border-border bg-background"
+                      }`}
+                    >
+                      <div
+                        className="relative w-full overflow-hidden rounded-lg border border-border"
+                        style={{ aspectRatio: "210 / 297", background: !def.background ? "#e7e2d8" : isImg ? "#e7e2d8" : def.background }}
+                      >
+                        {isImg && (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={def.background} alt="" className="absolute inset-0 size-full object-cover" />
+                        )}
+                        {slots.map((slot, i) => (
+                          <div
+                            key={i}
+                            className="absolute bg-primary/25"
+                            style={{ left: `${slot.x * 100}%`, top: `${slot.y * 100}%`, width: `${slot.width * 100}%`, height: `${slot.height * 100}%` }}
+                          />
+                        ))}
+                        {/* title indicator */}
+                        <div className="absolute inset-x-2 bottom-3 h-1.5 rounded bg-foreground/35" />
+                        <div className="absolute inset-x-5 bottom-1.5 h-1 rounded bg-foreground/20" />
+                      </div>
+                      <span className="text-center text-xs font-semibold text-foreground">{def.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
         )}

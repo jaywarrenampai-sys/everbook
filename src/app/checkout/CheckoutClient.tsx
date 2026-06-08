@@ -9,6 +9,7 @@ import {
   normalizeConfig, priceBreakdown, shippingPrice, formatTHB, DEFAULT_CONFIG,
 } from "@/lib/pricing";
 import { getProjectLayout, updateCheckout } from "@/lib/projects/localProjects";
+import { createOrder } from "@/lib/orders";
 
 const EMPTY: CheckoutInfo = {
   firstName: "", lastName: "", email: "", phone: "",
@@ -27,7 +28,7 @@ export default function CheckoutClient() {
   const [config, setConfig] = useState(DEFAULT_CONFIG);
   const [form, setForm] = useState<CheckoutInfo>(EMPTY);
   const [touched, setTouched] = useState(false);
-  const [done, setDone] = useState(false);
+  const [placing, setPlacing] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -64,12 +65,24 @@ export default function CheckoutClient() {
   const missing = REQUIRED.filter((k) => !form[k].trim());
   const valid = missing.length === 0;
 
-  function submit() {
+  async function submit() {
     setTouched(true);
-    if (!valid) return;
-    if (projectId) updateCheckout(projectId, form).catch(() => {});
-    setDone(true);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    if (!valid || placing) return;
+    setPlacing(true);
+    try {
+      if (projectId) await updateCheckout(projectId, form).catch(() => {});
+      const order = await createOrder({
+        projectId,
+        config,
+        pageCount,
+        customer: form,
+        amount: grandTotal,
+        paymentMethod: "promptpay",
+      });
+      router.push(`/order/${order.orderNumber}`);
+    } catch {
+      setPlacing(false);
+    }
   }
 
   const sizeLabel = SIZES.find((s) => s.id === config.size)?.label ?? "";
@@ -94,28 +107,7 @@ export default function CheckoutClient() {
         </div>
       </header>
 
-      {done ? (
-        <main className="mx-auto max-w-md px-5 py-16 text-center">
-          <div className="rounded-3xl border-2 border-border bg-card p-8 shadow-sm">
-            <div className="mx-auto mb-4 flex size-14 items-center justify-center rounded-full bg-mint text-mint-foreground">
-              <Check className="size-7" />
-            </div>
-            <h2 className="font-heading text-xl font-extrabold text-foreground">บันทึกข้อมูลแล้ว</h2>
-            <p className="mt-2 text-sm text-muted-foreground">
-              เราเก็บข้อมูลการจัดส่งของคุณไว้แล้ว ขั้นตอนการชำระเงินจะเปิดให้บริการเร็วๆ นี้
-            </p>
-            <div className="mt-5 rounded-2xl bg-secondary/30 p-4 text-left text-sm">
-              <Row label="ยอดรวม" value={formatTHB(grandTotal)} bold />
-            </div>
-            <button
-              onClick={() => router.push(projectId ? `/editor?projectId=${projectId}` : "/projects")}
-              className="mt-6 w-full rounded-full bg-primary px-6 py-3 text-sm font-bold text-primary-foreground transition-transform hover:-translate-y-0.5"
-            >
-              กลับไปที่หนังสือ
-            </button>
-          </div>
-        </main>
-      ) : (
+      {(
         <main className="mx-auto grid max-w-5xl gap-6 px-5 py-8 lg:grid-cols-[1fr_340px]">
           <div className="space-y-7">
             {/* Customer details */}
@@ -192,11 +184,12 @@ export default function CheckoutClient() {
 
               <button
                 onClick={submit}
-                className="mt-5 w-full rounded-full bg-primary px-6 py-3 text-base font-bold text-primary-foreground shadow-sm transition-transform hover:-translate-y-0.5"
+                disabled={placing}
+                className="mt-5 w-full rounded-full bg-primary px-6 py-3 text-base font-bold text-primary-foreground shadow-sm transition-transform hover:-translate-y-0.5 disabled:opacity-60 disabled:hover:translate-y-0"
               >
-                ดำเนินการต่อ
+                {placing ? "กำลังสร้างคำสั่งซื้อ…" : "สั่งซื้อและชำระเงิน"}
               </button>
-              <p className="mt-3 text-center text-xs text-muted-foreground">ขั้นตอนถัดไป: การชำระเงิน (เร็วๆ นี้)</p>
+              <p className="mt-3 text-center text-xs text-muted-foreground">ขั้นตอนถัดไป: ชำระเงินผ่าน PromptPay</p>
             </div>
           </aside>
         </main>

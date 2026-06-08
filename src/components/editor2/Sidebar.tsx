@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { useEditorStore, Panel } from "@/lib/store/editorStore";
 import { UploadedPhoto } from "@/lib/editor/types";
-import { TEMPLATES, getTemplate } from "@/lib/editor/templates";
+import { TEMPLATES, getTemplate, TEMPLATE_CATEGORIES } from "@/lib/editor/templates";
 import { COVER_CATEGORIES, COVER_TEMPLATES } from "@/lib/editor/coverTemplates";
 import { uid } from "@/lib/uid";
 
@@ -145,6 +145,25 @@ export default function Sidebar({ onArm }: { onArm?: () => void } = {}) {
   // ── AI auto-create options ──
   const [autoBg, setAutoBg] = useState<"none" | "pastel" | "scrapbook" | "watercolor">("none");
   const [autoStickers, setAutoStickers] = useState(false);
+
+  // ── Template library: category / search / favorites ──
+  const [tmplCat, setTmplCat] = useState<string>("all");
+  const [tmplQuery, setTmplQuery] = useState("");
+  const [favTemplates, setFavTemplates] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("everbook:favTemplates");
+      if (raw) setFavTemplates(new Set(JSON.parse(raw)));
+    } catch {}
+  }, []);
+  function toggleFav(id: string) {
+    setFavTemplates((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      try { localStorage.setItem("everbook:favTemplates", JSON.stringify([...next])); } catch {}
+      return next;
+    });
+  }
 
   // Load category list once, the first time the Stickers panel is opened.
   useEffect(() => {
@@ -448,39 +467,89 @@ export default function Sidebar({ onArm }: { onArm?: () => void } = {}) {
         )}
 
         {/* ── TEMPLATES / LAYOUTS ── */}
-        {(activePanel === "templates" || activePanel === "layouts") && (
-          <div className="flex-1 overflow-y-auto p-4">
-            <h2 className="mb-3 font-heading text-base font-bold text-foreground">
-              {activePanel === "templates" ? "เทมเพลต" : "เลย์เอาต์"}
-            </h2>
-            <div className="grid grid-cols-2 gap-2.5">
-              {TEMPLATES.map((tmpl) => {
-                const def = getTemplate(tmpl.id);
-                const active = currentPage?.templateId === tmpl.id;
-                return (
-                  <button
-                    key={tmpl.id}
-                    onClick={() => currentPage && applyTemplate(currentPage.id, tmpl.id)}
-                    className={`flex flex-col items-center gap-2 rounded-2xl border-2 p-3 transition-all hover:-translate-y-0.5 ${
-                      active ? "border-primary bg-primary/5" : "border-border bg-background"
-                    }`}
-                  >
-                    <div className="relative w-full overflow-hidden rounded-lg border border-border bg-muted" style={{ aspectRatio: "210 / 297" }}>
-                      {def.slots.map((slot) => (
-                        <div
-                          key={slot.id}
-                          className="absolute rounded bg-primary/30"
-                          style={{ left: `${slot.x * 100}%`, top: `${slot.y * 100}%`, width: `${slot.width * 100}%`, height: `${slot.height * 100}%` }}
-                        />
-                      ))}
-                    </div>
-                    <span className="text-center text-xs font-semibold text-foreground">{tmpl.label}</span>
+        {(activePanel === "templates" || activePanel === "layouts") && (() => {
+          const q = tmplQuery.trim().toLowerCase();
+          const shownTemplates = TEMPLATES
+            .filter((t) =>
+              tmplCat === "all" ? true : tmplCat === "favorites" ? favTemplates.has(t.id) : t.category === tmplCat
+            )
+            .filter((t) =>
+              !q || t.label.toLowerCase().includes(q) || t.keywords.some((k) => k.includes(q)) || String(t.photoCount) === q
+            )
+            .sort((a, b) => (favTemplates.has(b.id) ? 1 : 0) - (favTemplates.has(a.id) ? 1 : 0));
+          return (
+            <div className="flex flex-1 flex-col overflow-hidden">
+              {/* search */}
+              <div className="border-b border-border/60 p-3">
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                  <input
+                    value={tmplQuery}
+                    onChange={(e) => setTmplQuery(e.target.value)}
+                    placeholder="ค้นหาเทมเพลต / จำนวนรูป / สไตล์"
+                    className="w-full rounded-2xl border-2 border-border bg-secondary/30 py-2 pl-9 pr-3 text-sm text-foreground outline-none focus:ring-2 focus:ring-primary/40"
+                  />
+                </div>
+              </div>
+              {/* category chips */}
+              {!q && (
+                <div className="no-scrollbar flex gap-1.5 overflow-x-auto border-b border-border/60 p-3">
+                  <button onClick={() => setTmplCat("all")}
+                    className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${tmplCat === "all" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
+                    ทั้งหมด
                   </button>
-                );
-              })}
+                  <button onClick={() => setTmplCat("favorites")}
+                    className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${tmplCat === "favorites" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
+                    ⭐ รายการโปรด
+                  </button>
+                  {TEMPLATE_CATEGORIES.map((c) => (
+                    <button key={c.id} onClick={() => setTmplCat(c.id)} title={c.label}
+                      className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${tmplCat === c.id ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
+                      {c.emoji} {c.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {/* grid */}
+              <div className="flex-1 overflow-y-auto p-3">
+                {shownTemplates.length === 0 ? (
+                  <div className="flex flex-col items-center gap-2 rounded-2xl border-2 border-dashed border-border py-10 text-center text-muted-foreground">
+                    <span className="text-2xl">🔍</span>
+                    <p className="text-sm font-medium">{tmplCat === "favorites" ? "ยังไม่มีรายการโปรด" : "ไม่พบเทมเพลต"}</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-2.5">
+                    {shownTemplates.map((tmpl) => {
+                      const active = currentPage?.templateId === tmpl.id;
+                      const fav = favTemplates.has(tmpl.id);
+                      return (
+                        <div key={tmpl.id} className={`relative flex flex-col items-center gap-2 rounded-2xl border-2 p-3 transition-all ${active ? "border-primary bg-primary/5" : "border-border bg-background"}`}>
+                          <button onClick={() => currentPage && applyTemplate(currentPage.id, tmpl.id)} className="w-full transition-transform hover:-translate-y-0.5" title={tmpl.label}>
+                            <div className="relative w-full overflow-hidden rounded-lg border border-border bg-muted" style={{ aspectRatio: "210 / 297" }}>
+                              {tmpl.slots.map((slot) => (
+                                <div key={slot.id} className="absolute rounded-sm bg-primary/30 ring-1 ring-primary/30"
+                                  style={{ left: `${slot.x * 100}%`, top: `${slot.y * 100}%`, width: `${slot.width * 100}%`, height: `${slot.height * 100}%` }} />
+                              ))}
+                            </div>
+                            <span className="mt-1.5 block text-center text-[11px] font-semibold text-foreground">{tmpl.label}</span>
+                            <span className="block text-center text-[10px] text-muted-foreground">{tmpl.photoCount} รูป</span>
+                          </button>
+                          <button
+                            onClick={() => toggleFav(tmpl.id)}
+                            className={`absolute right-1.5 top-1.5 inline-flex size-6 items-center justify-center rounded-full text-xs ${fav ? "bg-butter text-butter-foreground" : "bg-card/90 text-muted-foreground"}`}
+                            title={fav ? "เอาออกจากรายการโปรด" : "บันทึกเป็นรายการโปรด"}
+                          >
+                            {fav ? "★" : "☆"}
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* ── COVER TEMPLATES ── */}
         {activePanel === "covers" && (

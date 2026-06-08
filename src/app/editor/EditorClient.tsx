@@ -1,9 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useEditorStore } from "@/lib/store/editorStore";
-import { saveProject, SerializedPhoto } from "@/lib/supabase/projects";
+import {
+  loadProject,
+  saveProject,
+  getLastProject,
+  setLastProject,
+} from "@/lib/projects/localProjects";
+import { makeCoverThumbnail } from "@/lib/projects/thumbnail";
+import { uid } from "@/lib/uid";
 import TopBar from "@/components/editor2/TopBar";
 import Sidebar from "@/components/editor2/Sidebar";
 import PageGrid from "@/components/editor2/PageGrid";
@@ -21,11 +28,11 @@ export default function EditorClient() {
   const projectTitle = useEditorStore((s) => s.projectTitle);
   const setProject = useEditorStore((s) => s.setProject);
   const setSaveState = useEditorStore((s) => s.setSaveState);
+  const loadDocument = useEditorStore((s) => s.loadDocument);
   const undo = useEditorStore((s) => s.undo);
   const redo = useEditorStore((s) => s.redo);
   const removeSelected = useEditorStore((s) => s.removeSelected);
 
-  const [serialized, setSerialized] = useState<SerializedPhoto[]>([]);
   const [showSave, setShowSave] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
@@ -35,6 +42,77 @@ export default function EditorClient() {
     setToast(msg);
     setTimeout(() => setToast(null), 3000);
   }
+
+  // ── Save the current document to local storage (autosave + manual) ──
+  const saveNow = useCallback(
+    async (nameOverride?: string) => {
+      const s = useEditorStore.getState();
+      if (!s.projectId) return;
+      setSaveState("saving");
+      try {
+        const cover = await makeCoverThumbnail(s.layout, s.photos);
+        await saveProject({
+          id: s.projectId,
+          name: nameOverride ?? s.projectTitle,
+          layout: s.layout,
+          photos: s.photos,
+          cover,
+        });
+        setSaveState("saved");
+      } catch {
+        setSaveState("error");
+      }
+    },
+    [setSaveState]
+  );
+
+  // ── Load on mount: ?projectId → that project; else recover last; else new ──
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const params = new URLSearchParams(window.location.search);
+      const pid = params.get("projectId");
+      const isNew = params.get("new");
+      let targetId = pid || (!isNew ? getLastProject() : null);
+
+      if (targetId) {
+        try {
+          const loaded = await loadProject(targetId);
+          if (!cancelled && loaded) {
+            loadDocument(loaded.layout, loaded.photos);
+            setProject(loaded.id, loaded.name);
+            setLastProject(loaded.id);
+            return;
+          }
+        } catch {
+          /* fall through to new */
+        }
+      }
+      // Fresh project — assign an id so autosave has a target.
+      if (!cancelled) {
+        const newId = uid();
+        setProject(newId, useEditorStore.getState().projectTitle);
+        setLastProject(newId);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // run once
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ── Autosave: debounced on every change (covers photo/template/sticker/text/bg) ──
+  useEffect(() => {
+    const t = setTimeout(() => saveNow(), 1200);
+    return () => clearTimeout(t);
+  }, [layout, photos, projectTitle, saveNow]);
+
+  // ── Autosave: heartbeat every 30s ──
+  useEffect(() => {
+    const i = setInterval(() => saveNow(), 30000);
+    return () => clearInterval(i);
+  }, [saveNow]);
 
   // ── Keyboard shortcuts ──
   useEffect(() => {
@@ -52,20 +130,11 @@ export default function EditorClient() {
 
   async function handleSave(title: string) {
     setIsSaving(true);
-    setSaveState("saving");
-    try {
-      const { projectId: pid, serializedPhotos } = await saveProject(projectId, title, layout, photos, serialized);
-      setProject(pid, title);
-      setSerialized(serializedPhotos);
-      setSaveState("saved");
-      setShowSave(false);
-      flash("บันทึกสำเร็จ ✓");
-    } catch (err) {
-      setSaveState("error");
-      flash(err instanceof Error ? err.message : "บันทึกไม่สำเร็จ");
-    } finally {
-      setIsSaving(false);
-    }
+    setProject(projectId, title);
+    await saveNow(title);
+    setShowSave(false);
+    setIsSaving(false);
+    flash("บันทึกแล้ว ✓");
   }
 
   function goToOrder() {
@@ -81,7 +150,7 @@ export default function EditorClient() {
   return (
     <div className="flex h-[100dvh] flex-col overflow-hidden bg-background">
       <TopBar
-        onBack={() => router.push("/")}
+        onBack={() => router.push("/projects")}
         onSave={() => setShowSave(true)}
         onPreview={goToPreview}
         onOrder={goToOrder}

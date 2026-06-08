@@ -50,6 +50,12 @@ export function SiteHeader() {
           </div>
 
           <a
+            href="/projects"
+            className="hidden items-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-muted sm:inline-flex"
+          >
+            หนังสือของฉัน
+          </a>
+          <a
             href="/editor"
             className="hidden items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition-transform hover:-translate-y-0.5 sm:inline-flex"
           >

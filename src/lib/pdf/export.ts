@@ -19,6 +19,17 @@ import { PDFDocument, rgb, degrees, PDFOperator } from "pdf-lib";
 import { BookLayout } from "@/lib/editor/types";
 import { getTemplate } from "@/lib/editor/templates";
 import { PAGE_ASPECT_RATIO } from "@/lib/editor/layout";
+import { STICKER_PATHS } from "@/lib/stickers/paths";
+
+/** Parse "#rrggbb" or "#rrggbbaa" → pdf-lib color + opacity */
+function parseFill(hex: string): { color: ReturnType<typeof rgb>; opacity: number } {
+  const h = hex.replace("#", "");
+  const r = parseInt(h.slice(0, 2), 16) / 255;
+  const g = parseInt(h.slice(2, 4), 16) / 255;
+  const b = parseInt(h.slice(4, 6), 16) / 255;
+  const opacity = h.length >= 8 ? parseInt(h.slice(6, 8), 16) / 255 : 1;
+  return { color: rgb(r || 0, g || 0, b || 0), opacity };
+}
 
 // ── Print constants ───────────────────────────────────────────────────────────
 const MM_TO_PT = 2.83465;   // 1 mm = 2.83465 points (PostScript points)
@@ -150,6 +161,37 @@ async function renderPage(
         yFrac: placement.y,
         wFrac: placement.width,
         hFrac: placement.height,
+      });
+    }
+  }
+
+  // ── Stickers (drawn on top, vector — uses same fraction coords) ─────────
+  for (const sticker of bookPage.stickers ?? []) {
+    const art = STICKER_PATHS[sticker.stickerId];
+    if (!art) continue;
+
+    // Square art (100×100). Draw at side S based on width fraction.
+    const S = sticker.width * PAGE_W_PT;
+    const scale = S / 100;
+    const cxFrac = sticker.x + sticker.width / 2;
+    const cyFrac = sticker.y + sticker.height / 2;
+    const cx = BLEED_PT + cxFrac * PAGE_W_PT;
+    const cy = BLEED_PT + PAGE_H_PT - cyFrac * PAGE_H_PT; // flip y
+    const r = (-sticker.rotation * Math.PI) / 180; // editor clockwise → pdf ccw
+
+    // Position the SVG top-left origin so the art rotates about its centre
+    const x = cx - Math.cos(r) * (S / 2) - Math.sin(r) * (S / 2);
+    const y = cy - Math.sin(r) * (S / 2) + Math.cos(r) * (S / 2);
+
+    for (const p of art.paths) {
+      const { color, opacity } = parseFill(p.fill);
+      page.drawSvgPath(p.d, {
+        x,
+        y,
+        scale,
+        rotate: degrees(-sticker.rotation),
+        color,
+        opacity,
       });
     }
   }

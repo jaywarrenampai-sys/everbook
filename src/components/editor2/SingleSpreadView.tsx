@@ -233,6 +233,10 @@ function EditablePage({
   const selection = useEditorStore((s) => s.selection);
   const armedPhotoId = useEditorStore((s) => s.armedPhotoId);
   const armPhoto = useEditorStore((s) => s.armPhoto);
+  const addSticker = useEditorStore((s) => s.addSticker);
+  const updateSticker = useEditorStore((s) => s.updateSticker);
+  const duplicateSticker = useEditorStore((s) => s.duplicateSticker);
+  const removeSelected = useEditorStore((s) => s.removeSelected);
 
   const template = getTemplate(page.templateId);
   const photoById = (id?: string) => (id ? photos.find((p) => p.id === id) : undefined);
@@ -262,6 +266,7 @@ function EditablePage({
 
   return (
     <div
+      data-page=""
       style={{ width, height, background: page.background ?? "#ffffff" }}
       className={`relative shrink-0 overflow-hidden ${spineShadow}`}
       onClick={(e) => {
@@ -274,13 +279,29 @@ function EditablePage({
         }
         select(null);
       }}
-      onDragOver={(e) => page.templateId === "blank" && e.preventDefault()}
+      onDragOver={(e) => {
+        // Stickers can drop on any template; photos only on blank pages
+        if (page.templateId === "blank" || e.dataTransfer.types.includes("stickerid")) {
+          e.preventDefault();
+        }
+      }}
       onDrop={(e) => {
+        const rect = e.currentTarget.getBoundingClientRect();
+        const fx = (e.clientX - rect.left) / width;
+        const fy = (e.clientY - rect.top) / height;
+        // Sticker drop (allowed on any template)
+        const stickerId = e.dataTransfer.getData("stickerId");
+        const stickerSrc = e.dataTransfer.getData("stickerSrc");
+        if (stickerId && stickerSrc) {
+          e.preventDefault();
+          addSticker(page.id, stickerId, stickerSrc, fx, fy);
+          return;
+        }
+        // Photo drop (blank pages only)
         if (page.templateId !== "blank") return;
         const photoId = e.dataTransfer.getData("photoId");
         if (!photoId) return;
-        const rect = e.currentTarget.getBoundingClientRect();
-        placeFree(page.id, photoId, (e.clientX - rect.left) / width, (e.clientY - rect.top) / height);
+        placeFree(page.id, photoId, fx, fy);
       }}
     >
       {/* Template slots */}
@@ -428,6 +449,110 @@ function EditablePage({
           </div>
         );
       })}
+
+      {/* Stickers */}
+      {(page.stickers ?? [])
+        .slice()
+        .sort((a, b) => a.zIndex - b.zIndex)
+        .map((st) => {
+          const isSel = selection?.kind === "sticker" && selection.id === st.id;
+          const aspect = st.height / st.width; // preserve sticker aspect on resize
+          return (
+            <div
+              key={st.id}
+              onClick={(e) => { e.stopPropagation(); select({ pageId: page.id, kind: "sticker", id: st.id }); }}
+              onPointerDown={(e) => {
+                e.stopPropagation();
+                select({ pageId: page.id, kind: "sticker", id: st.id });
+                const orig = { ...st };
+                startDrag(e, (dx, dy) =>
+                  updateSticker(page.id, {
+                    ...orig,
+                    x: clamp(orig.x + dx, 0, 1 - orig.width),
+                    y: clamp(orig.y + dy, 0, 1 - orig.height),
+                  })
+                );
+              }}
+              style={{
+                position: "absolute",
+                left: st.x * width,
+                top: st.y * height,
+                width: st.width * width,
+                height: st.height * height,
+                transform: `rotate(${st.rotation}deg)`,
+                transformOrigin: "center",
+                cursor: "move",
+                touchAction: "none",
+              }}
+              className={isSel ? "ring-2 ring-primary" : ""}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={st.src} alt="" draggable={false} className="h-full w-full select-none object-contain" />
+
+              {isSel && (
+                <>
+                  {/* delete */}
+                  <button
+                    onClick={(e) => { e.stopPropagation(); removeSelected(); }}
+                    onPointerDown={(e) => e.stopPropagation()}
+                    className="absolute -right-3 -top-3 flex size-6 items-center justify-center rounded-full bg-destructive text-xs font-bold text-background shadow"
+                    title="ลบ"
+                  >
+                    ×
+                  </button>
+                  {/* duplicate */}
+                  <button
+                    onClick={(e) => { e.stopPropagation(); duplicateSticker(page.id, st.id); }}
+                    onPointerDown={(e) => e.stopPropagation()}
+                    className="absolute -left-3 -top-3 flex size-6 items-center justify-center rounded-full bg-primary text-background shadow"
+                    title="ทำสำเนา"
+                  >
+                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><rect x="3" y="3" width="8" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.6" /><path d="M6 13h7V6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" /></svg>
+                  </button>
+                  {/* rotate (top center) */}
+                  <span
+                    onPointerDown={(e) => {
+                      e.stopPropagation();
+                      const pageEl = (e.target as HTMLElement).closest("[data-page]") as HTMLElement | null;
+                      if (!pageEl) return;
+                      const r = pageEl.getBoundingClientRect();
+                      const cx = r.left + (st.x + st.width / 2) * width;
+                      const cy = r.top + (st.y + st.height / 2) * height;
+                      const orig = { ...st };
+                      const move = (ev: PointerEvent) => {
+                        const ang = (Math.atan2(ev.clientY - cy, ev.clientX - cx) * 180) / Math.PI + 90;
+                        updateSticker(page.id, { ...orig, rotation: Math.round(ang) });
+                      };
+                      const up = () => {
+                        window.removeEventListener("pointermove", move);
+                        window.removeEventListener("pointerup", up);
+                      };
+                      window.addEventListener("pointermove", move);
+                      window.addEventListener("pointerup", up);
+                    }}
+                    className="absolute -top-7 left-1/2 size-5 -translate-x-1/2 cursor-grab rounded-full border-2 border-primary bg-card"
+                    style={{ touchAction: "none" }}
+                    title="หมุน"
+                  />
+                  {/* resize (bottom-right) */}
+                  <span
+                    onPointerDown={(e) => {
+                      e.stopPropagation();
+                      const orig = { ...st };
+                      startDrag(e, (dx) => {
+                        const width2 = clamp(orig.width + dx, 0.05, 1);
+                        updateSticker(page.id, { ...orig, width: width2, height: width2 * aspect });
+                      });
+                    }}
+                    className="absolute -bottom-2 -right-2 size-4 cursor-se-resize rounded-full border-2 border-primary bg-card"
+                    style={{ touchAction: "none" }}
+                    title="ปรับขนาด"
+                  />
+                </>
+              )}
+            </div>
+          );
+        })}
     </div>
   );
 }

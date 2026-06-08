@@ -2,7 +2,7 @@
 // All geometry used by both the canvas preview and the print PDF must live here.
 // Never duplicate these numbers in components.
 
-import { BookPage, PlacedPhoto, TextBox } from "./types";
+import { BookPage, PlacedPhoto, TextBox, Sticker } from "./types";
 import { uid } from "@/lib/uid";
 import { getTemplate } from "./templates";
 
@@ -206,4 +206,52 @@ export function setCropY(page: BookPage, cropY: number): BookPage {
 /** Set zoom level for full bleed (immutable) */
 export function setZoom(page: BookPage, zoom: number): BookPage {
   return { ...page, zoom: Math.max(100, Math.min(300, zoom)) };
+}
+
+// ─── Stickers ──────────────────────────────────────────────────────────────
+
+/** Page width / height ratio for the portrait editor page (0.77).
+ *  Used to keep square stickers visually square across the fraction system. */
+const STICKER_PAGE_W_OVER_H = 0.77;
+
+/** Create a sticker placement. Default ~120px feel: 22% of page width,
+ *  height adjusted so the square SVG stays square. Centred unless x/y given. */
+export function defaultSticker(
+  stickerId: string,
+  src: string,
+  x?: number,
+  y?: number,
+  zIndex = 1
+): Sticker {
+  const width = 0.22;
+  const height = width * STICKER_PAGE_W_OVER_H; // keep square SVG square
+  return {
+    id: uid(),
+    stickerId,
+    src,
+    x: x != null ? clamp(x - width / 2, 0, 1 - width) : 0.5 - width / 2,
+    y: y != null ? clamp(y - height / 2, 0, 1 - height) : 0.5 - height / 2,
+    width,
+    height,
+    rotation: 0,
+    zIndex,
+  };
+}
+
+/** Add a sticker to a page (immutable) */
+export function addSticker(page: BookPage, sticker: Sticker): BookPage {
+  return { ...page, stickers: [...(page.stickers ?? []), sticker] };
+}
+
+/** Update a sticker on a page (immutable) */
+export function updateSticker(page: BookPage, updated: Sticker): BookPage {
+  return {
+    ...page,
+    stickers: (page.stickers ?? []).map((s) => (s.id === updated.id ? updated : s)),
+  };
+}
+
+/** Remove a sticker from a page (immutable) */
+export function removeSticker(page: BookPage, stickerId: string): BookPage {
+  return { ...page, stickers: (page.stickers ?? []).filter((s) => s.id !== stickerId) };
 }

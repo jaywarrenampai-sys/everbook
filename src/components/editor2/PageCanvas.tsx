@@ -134,6 +134,28 @@ export default function PageCanvas({ page, photos, width, height }: Props) {
           {t.text}
         </div>
       ))}
+
+      {/* Stickers */}
+      {(page.stickers ?? [])
+        .slice()
+        .sort((a, b) => a.zIndex - b.zIndex)
+        .map((st) => (
+          <div
+            key={st.id}
+            style={{
+              position: "absolute",
+              left: st.x * width,
+              top: st.y * height,
+              width: st.width * width,
+              height: st.height * height,
+              transform: `rotate(${st.rotation}deg)`,
+              transformOrigin: "center",
+            }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={st.src} alt="" draggable={false} className="h-full w-full object-contain" />
+          </div>
+        ))}
     </div>
   );
 }

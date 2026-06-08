@@ -1,7 +1,7 @@
 "use client";
 
 import { create } from "zustand";
-import { BookLayout, BookPage, UploadedPhoto, PlacedPhoto, TextBox } from "@/lib/editor/types";
+import { BookLayout, BookPage, UploadedPhoto, PlacedPhoto, TextBox, Sticker } from "@/lib/editor/types";
 import {
   newPage,
   applyTemplate as applyTemplateToPage,
@@ -20,6 +20,10 @@ import {
   setCropX as setCropXOnPage,
   setCropY as setCropYOnPage,
   setZoom as setZoomOnPage,
+  defaultSticker,
+  addSticker as addStickerToPage,
+  updateSticker as updateStickerOnPage,
+  removeSticker as removeStickerFromPage,
 } from "@/lib/editor/layout";
 import { getTemplate } from "@/lib/editor/templates";
 import { uid } from "@/lib/uid";
@@ -33,8 +37,8 @@ export type SaveState = "idle" | "saving" | "saved" | "error";
 /** A selected element on the canvas */
 export interface Selection {
   pageId: string;
-  kind: "photo" | "text" | "slot";
-  id: string; // placement id, text id, or slot id
+  kind: "photo" | "text" | "slot" | "sticker";
+  id: string; // placement id, text id, slot id, or sticker id
 }
 
 interface EditorState {
@@ -100,6 +104,11 @@ interface EditorState {
   // ── Text ──
   addTextBox: (pageId: string) => void;
   updateTextBox: (pageId: string, box: TextBox) => void;
+
+  // ── Stickers ──
+  addSticker: (pageId: string, stickerId: string, src: string, x?: number, y?: number) => void;
+  updateSticker: (pageId: string, sticker: Sticker) => void;
+  duplicateSticker: (pageId: string, stickerId: string) => void;
 
   // ── Page management ──
   addPage: () => void;
@@ -247,6 +256,7 @@ export const useEditorStore = create<EditorState>((set, get) => {
           if (sel.kind === "photo") return removePlacement(p, sel.id);
           if (sel.kind === "text") return removeTextFromPage(p, sel.id);
           if (sel.kind === "slot") return clearSlot(p, sel.id);
+          if (sel.kind === "sticker") return removeStickerFromPage(p, sel.id);
           return p;
         })
       );
@@ -268,6 +278,33 @@ export const useEditorStore = create<EditorState>((set, get) => {
     // ── Text ──
     addTextBox: (pageId) => commit(mapPage(pageId, (p) => addTextToPage(p, defaultTextBox()))),
     updateTextBox: (pageId, box) => commit(mapPage(pageId, (p) => updateTextOnPage(p, box))),
+
+    // ── Stickers ──
+    addSticker: (pageId, stickerId, src, x, y) => {
+      // zIndex = one above the current max on this page
+      const page = get().layout.pages.find((p) => p.id === pageId);
+      const maxZ = Math.max(0, ...(page?.stickers ?? []).map((s) => s.zIndex));
+      const sticker = defaultSticker(stickerId, src, x, y, maxZ + 1);
+      commit(mapPage(pageId, (p) => addStickerToPage(p, sticker)));
+      set({ selection: { pageId, kind: "sticker", id: sticker.id } });
+    },
+    updateSticker: (pageId, sticker) =>
+      commit(mapPage(pageId, (p) => updateStickerOnPage(p, sticker))),
+    duplicateSticker: (pageId, stickerId) => {
+      const page = get().layout.pages.find((p) => p.id === pageId);
+      const orig = page?.stickers?.find((s) => s.id === stickerId);
+      if (!orig) return;
+      const maxZ = Math.max(0, ...(page?.stickers ?? []).map((s) => s.zIndex));
+      const copy: Sticker = {
+        ...orig,
+        id: uid(),
+        x: Math.min(orig.x + 0.04, 1 - orig.width),
+        y: Math.min(orig.y + 0.04, 1 - orig.height),
+        zIndex: maxZ + 1,
+      };
+      commit(mapPage(pageId, (p) => addStickerToPage(p, copy)));
+      set({ selection: { pageId, kind: "sticker", id: copy.id } });
+    },
 
     // ── Page management ──
     addPage: () =>

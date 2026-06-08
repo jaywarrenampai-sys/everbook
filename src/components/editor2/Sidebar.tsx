@@ -11,9 +11,11 @@ import {
   Sparkles,
   Upload,
 } from "lucide-react";
+import { Search } from "lucide-react";
 import { useEditorStore, Panel } from "@/lib/store/editorStore";
 import { UploadedPhoto } from "@/lib/editor/types";
 import { TEMPLATES, getTemplate } from "@/lib/editor/templates";
+import { STICKERS, STICKER_CATEGORIES } from "@/lib/stickers/manifest";
 import { uid } from "@/lib/uid";
 
 // Solid background swatches for the Backgrounds panel
@@ -110,10 +112,13 @@ export default function Sidebar({ onArm }: { onArm?: () => void } = {}) {
   const autofill = useEditorStore((s) => s.autofill);
   const applyTemplate = useEditorStore((s) => s.applyTemplate);
   const setBackground = useEditorStore((s) => s.setBackground);
+  const addSticker = useEditorStore((s) => s.addSticker);
   const layout = useEditorStore((s) => s.layout);
 
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+  const [stickerCat, setStickerCat] = useState<string>("all");
+  const [stickerQuery, setStickerQuery] = useState("");
 
   const currentPage = layout.pages[layout.currentPageIndex];
 
@@ -130,6 +135,20 @@ export default function Sidebar({ onArm }: { onArm?: () => void } = {}) {
 
   const usedTotal = photos.filter((p) => usageCount(p.id) > 0).length;
   const shown = hideUsed ? photos.filter((p) => usageCount(p.id) === 0) : photos;
+
+  // ── Sticker filtering (category + search) ──
+  const q = stickerQuery.trim().toLowerCase();
+  const shownStickers = STICKERS.filter((st) => {
+    if (stickerCat !== "all" && st.category !== stickerCat) return false;
+    if (!q) return true;
+    return st.keywords.some((k) => k.toLowerCase().includes(q)) || st.name.includes(q);
+  });
+
+  function placeSticker(stickerId: string, src: string) {
+    if (!currentPage) return;
+    addSticker(currentPage.id, stickerId, src); // centred on current page
+    onArm?.();
+  }
 
   return (
     <div className="flex h-full shrink-0 gap-2 p-2">
@@ -303,12 +322,74 @@ export default function Sidebar({ onArm }: { onArm?: () => void } = {}) {
           </div>
         )}
 
-        {/* ── STICKERS (placeholder) ── */}
+        {/* ── STICKERS ── */}
         {activePanel === "stickers" && (
-          <div className="flex flex-1 flex-col items-center justify-center gap-2 p-6 text-center">
-            <span className="text-4xl">🎉</span>
-            <p className="font-heading text-base font-bold text-foreground">สติกเกอร์เร็วๆ นี้</p>
-            <p className="text-sm text-muted-foreground">เรากำลังเตรียมสติกเกอร์น่ารักๆ ให้คุณ</p>
+          <div className="flex flex-1 flex-col overflow-hidden">
+            {/* Search */}
+            <div className="border-b border-border/60 p-3">
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  value={stickerQuery}
+                  onChange={(e) => setStickerQuery(e.target.value)}
+                  placeholder="ค้นหาสติกเกอร์…"
+                  className="w-full rounded-2xl border-2 border-border bg-secondary/30 py-2 pl-9 pr-3 text-sm text-foreground outline-none focus:ring-2 focus:ring-primary/40"
+                />
+              </div>
+            </div>
+
+            {/* Category chips */}
+            <div className="no-scrollbar flex gap-1.5 overflow-x-auto border-b border-border/60 p-3">
+              <button
+                onClick={() => setStickerCat("all")}
+                className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
+                  stickerCat === "all" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                }`}
+              >
+                ทั้งหมด
+              </button>
+              {STICKER_CATEGORIES.map((c) => (
+                <button
+                  key={c.id}
+                  onClick={() => setStickerCat(c.id)}
+                  title={c.label}
+                  className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
+                    stickerCat === c.id ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                  }`}
+                >
+                  {c.emoji} {c.th}
+                </button>
+              ))}
+            </div>
+
+            {/* Sticker grid */}
+            <div className="flex-1 overflow-y-auto p-3">
+              {shownStickers.length === 0 ? (
+                <div className="flex flex-col items-center gap-2 rounded-2xl border-2 border-dashed border-border py-10 text-center text-muted-foreground">
+                  <span className="text-2xl">🔍</span>
+                  <p className="text-sm font-medium">ไม่พบสติกเกอร์</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-4 gap-2">
+                  {shownStickers.map((st) => (
+                    <button
+                      key={st.id}
+                      draggable
+                      onDragStart={(e) => {
+                        e.dataTransfer.setData("stickerId", st.id);
+                        e.dataTransfer.setData("stickerSrc", st.file);
+                      }}
+                      onClick={() => placeSticker(st.id, st.file)}
+                      className="group aspect-square cursor-grab rounded-xl border-2 border-border bg-background p-1.5 transition-transform hover:-translate-y-0.5 active:cursor-grabbing"
+                      title="คลิกหรือลากเพื่อวางบนหน้า"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={st.file} alt="" draggable={false} className="size-full object-contain" />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>

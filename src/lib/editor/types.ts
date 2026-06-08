@@ -41,6 +41,21 @@ export interface TextBox {
   color: string;        // hex
 }
 
+/** A decorative sticker placed on a page.
+ *  Geometry uses the same 0–1 fraction system as photos and text, so the
+ *  editor preview and the print PDF stay in sync. */
+export interface Sticker {
+  id: string;          // unique placement id
+  stickerId: string;   // references the sticker manifest id (for PDF path lookup)
+  src: string;         // public path to the SVG, e.g. "/stickers/hearts/heart-01.svg"
+  x: number;           // 0–1 fraction of page width (top-left)
+  y: number;           // 0–1 fraction of page height (top-left)
+  width: number;       // 0–1 fraction of page width
+  height: number;      // 0–1 fraction of page height
+  rotation: number;    // degrees, clockwise
+  zIndex: number;      // stacking order among stickers on the page
+}
+
 /** One page of the photobook */
 export interface BookPage {
   id: string;
@@ -77,6 +92,8 @@ export interface BookPage {
   cropY?: number;
   /** Zoom level (100 to 300) when fullBleed is ON */
   zoom?: number;
+  /** Decorative stickers on this page (additive — independent of template/slots) */
+  stickers?: Sticker[];
 }
 
 /** The full editor state — this is what gets saved to / loaded from the DB */

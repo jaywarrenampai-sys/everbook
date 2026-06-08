@@ -9,22 +9,41 @@ export type PaymentStatus = "pending" | "paid" | "failed" | "refunded";
 export type OrderStatus =
   | "pending_payment"
   | "paid"
-  | "preparing"
+  | "preparing_files"
+  | "ready_for_print"
   | "printing"
+  | "quality_check"
+  | "ready_to_ship"
   | "shipped"
-  | "delivered";
+  | "delivered"
+  | "cancelled"
+  | "refunded";
 
+/** Linear production pipeline (for the customer timeline). */
 export const ORDER_STATUS_FLOW: OrderStatus[] = [
-  "pending_payment", "paid", "preparing", "printing", "shipped", "delivered",
+  "pending_payment", "paid", "preparing_files", "ready_for_print",
+  "printing", "quality_check", "ready_to_ship", "shipped", "delivered",
 ];
 
-export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
+/** Every status an admin can set (pipeline + terminal states). */
+export const ALL_ORDER_STATUSES: OrderStatus[] = [
+  ...ORDER_STATUS_FLOW, "cancelled", "refunded",
+];
+
+// Record<string,...> so legacy values (e.g. "preparing") still render.
+export const ORDER_STATUS_LABEL: Record<string, string> = {
   pending_payment: "รอชำระเงิน",
   paid: "ชำระเงินแล้ว",
-  preparing: "กำลังเตรียม",
+  preparing_files: "เตรียมไฟล์",
+  ready_for_print: "พร้อมพิมพ์",
   printing: "กำลังพิมพ์",
+  quality_check: "ตรวจคุณภาพ",
+  ready_to_ship: "พร้อมจัดส่ง",
   shipped: "จัดส่งแล้ว",
   delivered: "ได้รับแล้ว",
+  cancelled: "ยกเลิก",
+  refunded: "คืนเงินแล้ว",
+  preparing: "กำลังเตรียม", // legacy
 };
 
 export const PAYMENT_STATUS_LABEL: Record<PaymentStatus, string> = {
@@ -37,6 +56,7 @@ export const PAYMENT_STATUS_LABEL: Record<PaymentStatus, string> = {
 export interface Order {
   orderNumber: string;
   projectId: string | null;
+  bookName: string;
   config: ProductConfig;
   pageCount: number;
   customer: CheckoutInfo;
@@ -44,6 +64,7 @@ export interface Order {
   paymentMethod: "promptpay" | "card";
   paymentStatus: PaymentStatus;
   orderStatus: OrderStatus;
+  notes: string; // internal admin notes
   createdAt: number;
   updatedAt: number;
 }
@@ -56,6 +77,7 @@ function generateOrderNumber(): string {
 
 export async function createOrder(input: {
   projectId: string | null;
+  bookName?: string;
   config: ProductConfig;
   pageCount: number;
   customer: CheckoutInfo;
@@ -66,6 +88,7 @@ export async function createOrder(input: {
   const order: Order = {
     orderNumber: generateOrderNumber(),
     projectId: input.projectId,
+    bookName: input.bookName || "หนังสือของฉัน",
     config: input.config,
     pageCount: input.pageCount,
     customer: input.customer,
@@ -73,6 +96,7 @@ export async function createOrder(input: {
     paymentMethod: input.paymentMethod ?? "promptpay",
     paymentStatus: "pending",
     orderStatus: "pending_payment",
+    notes: "",
     createdAt: now,
     updatedAt: now,
   };

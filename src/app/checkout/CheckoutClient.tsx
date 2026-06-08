@@ -25,6 +25,7 @@ export default function CheckoutClient() {
   const router = useRouter();
   const [projectId, setProjectId] = useState<string | null>(null);
   const [pageCount, setPageCount] = useState(0);
+  const [bookName, setBookName] = useState("หนังสือของฉัน");
   const [config, setConfig] = useState(DEFAULT_CONFIG);
   const [form, setForm] = useState<CheckoutInfo>(EMPTY);
   const [touched, setTouched] = useState(false);
@@ -40,6 +41,7 @@ export default function CheckoutClient() {
         const proj = await getProjectLayout(pid).catch(() => null);
         if (proj) {
           setPageCount(proj.layout.pages.length);
+          setBookName(proj.name);
           setConfig(normalizeConfig(proj.layout.productConfig));
           if (proj.layout.checkout) setForm({ ...EMPTY, ...proj.layout.checkout });
           return;
@@ -73,6 +75,7 @@ export default function CheckoutClient() {
       if (projectId) await updateCheckout(projectId, form).catch(() => {});
       const order = await createOrder({
         projectId,
+        bookName,
         config,
         pageCount,
         customer: form,

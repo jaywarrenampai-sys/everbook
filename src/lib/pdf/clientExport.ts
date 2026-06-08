@@ -58,6 +58,36 @@ export async function exportPDFFromEditor(
   downloadResponse(res, "everbook-sample.pdf");
 }
 
+/**
+ * Admin print-file export from a LOCAL project: encodes photos as base64 and
+ * uses the real server export route (handles backgrounds, stickers, text, A4).
+ * coverOnly trims to the cover page (Cover PDF).
+ */
+export async function exportLocalProjectPDF(
+  layout: BookLayout,
+  photos: UploadedPhoto[],
+  opts: { coverOnly?: boolean; filename?: string } = {}
+): Promise<void> {
+  let usedLayout: BookLayout = layout;
+  if (opts.coverOnly) {
+    const coverPages = layout.pages.filter((p) => p.isCover).slice(0, 1);
+    usedLayout = { ...layout, pages: coverPages.length ? coverPages : layout.pages.slice(0, 1) };
+  }
+  const photoData = await Promise.all(
+    photos.map(async (p) => ({ id: p.id, dataUrl: await objectUrlToDataUrl(p.previewUrl) }))
+  );
+  const res = await fetch("/api/export-pdf-preview", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ layout: usedLayout, photos: photoData }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error ?? `Export failed (${res.status})`);
+  }
+  await downloadResponse(res, opts.filename ?? "everbook.pdf");
+}
+
 async function downloadResponse(res: Response, fallbackName: string) {
   const blob = await res.blob();
   const url = URL.createObjectURL(blob);

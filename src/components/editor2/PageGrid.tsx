@@ -103,10 +103,15 @@ function SpreadCard({
         className={`relative cursor-pointer rounded-2xl border-2 p-1.5 transition-all hover:-translate-y-0.5 ${active ? "border-primary bg-primary/5 shadow-md" : "border-border bg-card shadow-sm hover:border-primary/40"}`}
         style={{ width: PW * 2 + 2 + 12 }}
       >
-        <div className="flex overflow-hidden rounded-xl border border-border">
+        <div className="relative flex overflow-hidden border border-border shadow-sm">
           <PageCanvas page={spread.left} photos={photos} width={PW} height={PH} />
-          <div className="w-px shrink-0 bg-border" style={{ height: PH }} />
           <PageCanvas page={spread.right} photos={photos} width={PW} height={PH} />
+          {/* subtle centre binding */}
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-y-0 left-1/2 w-3 -translate-x-1/2"
+            style={{ background: "linear-gradient(to right, transparent, rgba(0,0,0,0.16) 50%, transparent)" }}
+          />
         </div>
 
         {hover && (

@@ -1,142 +1,99 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { BookLayout, UploadedPhoto } from "@/lib/editor/types";
+import { BookPage, UploadedPhoto } from "@/lib/editor/types";
 import { PAGE_H_OVER_W } from "@/lib/editor/layout";
 import PageCanvas from "@/components/editor2/PageCanvas";
+import BookFrame from "@/components/editor2/BookFrame";
 
 interface Props {
-  layout: BookLayout;
+  left: BookPage | null;
+  right: BookPage | null;
   photos: UploadedPhoto[];
-  currentPage: number;
-  onPageChange: (page: number) => void;
+  onPrev: () => void;
+  onNext: () => void;
 }
 
 /**
- * Full-screen book viewer with page navigation.
- * Supports:
- * - Click corners to turn pages
- * - Swipe/drag to turn pages (on mobile & desktop)
- * - Keyboard navigation (arrow keys)
+ * Realistic photobook preview — renders the current spread using the SAME
+ * BookFrame chrome as the editor (sharp corners, centre binding, depth).
+ * Click page edges, swipe/drag, or arrow keys to turn pages.
  */
-export default function BookViewer({
-  layout,
-  photos,
-  currentPage,
-  onPageChange,
-}: Props) {
+export default function BookViewer({ left, right, photos, onPrev, onNext }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const dragStartRef = useRef<{ x: number; y: number } | null>(null);
-  const [pageWidth, setPageWidth] = useState(340);
+  const [pageWidth, setPageWidth] = useState(320);
 
-  // Calculate page height based on aspect ratio — true portrait A4
-  const ASPECT = PAGE_H_OVER_W; // height / width (297/210)
-  const pageHeight = Math.round(pageWidth * ASPECT);
+  const ASPECT = PAGE_H_OVER_W; // 297/210
+  const isSpread = !!left && !!right;
 
-  // Handle window resize
+  // Fit the spread to the viewport while preserving the exact A4 ratio.
   useEffect(() => {
-    const handleResize = () => {
-      if (containerRef.current) {
-        // Use ~80% of available width, capped at 500px
-        const width = Math.min(
-          containerRef.current.clientWidth * 0.8,
-          500
-        );
-        setPageWidth(Math.max(200, width));
-      }
+    const measure = () => {
+      const el = containerRef.current;
+      if (!el) return;
+      const availW = el.clientWidth * 0.94;
+      const availH = el.clientHeight * 0.86;
+      const byW = isSpread ? (availW - 36) / 2 : availW;
+      const byH = availH / ASPECT;
+      setPageWidth(Math.max(140, Math.min(520, Math.floor(Math.min(byW, byH)))));
     };
-
-    handleResize();
-    const debounce = setTimeout(handleResize, 100);
-    window.addEventListener("resize", handleResize);
+    measure();
+    const ro = new ResizeObserver(measure);
+    if (containerRef.current) ro.observe(containerRef.current);
+    window.addEventListener("resize", measure);
     return () => {
-      clearTimeout(debounce);
-      window.removeEventListener("resize", handleResize);
+      ro.disconnect();
+      window.removeEventListener("resize", measure);
     };
-  }, []);
+  }, [isSpread, ASPECT]);
 
   // Keyboard navigation
   useEffect(() => {
-    const handleKeydown = (e: KeyboardEvent) => {
-      if (e.key === "ArrowLeft") {
-        e.preventDefault();
-        onPageChange(Math.max(0, currentPage - 1));
-      } else if (e.key === "ArrowRight") {
-        e.preventDefault();
-        onPageChange(Math.min(layout.pages.length - 1, currentPage + 1));
-      }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "ArrowLeft") { e.preventDefault(); onPrev(); }
+      else if (e.key === "ArrowRight") { e.preventDefault(); onNext(); }
     };
-    window.addEventListener("keydown", handleKeydown);
-    return () => window.removeEventListener("keydown", handleKeydown);
-  }, [currentPage, layout.pages.length, onPageChange]);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onPrev, onNext]);
 
-  // Detect click on page edges (left/right) for turning
-  const handleCanvasClick = (e: React.MouseEvent) => {
-    if (!containerRef.current) return;
-    const rect = containerRef.current.getBoundingClientRect();
+  const pageHeight = Math.round(pageWidth * ASPECT);
+
+  const handleClick = (e: React.MouseEvent) => {
+    const el = containerRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
     const relX = e.clientX - rect.left;
-    const threshold = pageWidth * 0.2; // 20% on each side
-
-    if (relX < threshold) {
-      onPageChange(Math.max(0, currentPage - 1));
-    } else if (relX > rect.width - threshold) {
-      onPageChange(Math.min(layout.pages.length - 1, currentPage + 1));
-    }
+    if (relX < rect.width * 0.22) onPrev();
+    else if (relX > rect.width * 0.78) onNext();
   };
 
-  // Handle drag/swipe
   const handleMouseDown = (e: React.MouseEvent) => {
     dragStartRef.current = { x: e.clientX, y: e.clientY };
   };
-
   const handleMouseUp = (e: React.MouseEvent) => {
     if (!dragStartRef.current) return;
-    const dragEnd = { x: e.clientX, y: e.clientY };
-    const deltaX = dragEnd.x - dragStartRef.current.x;
-    const threshold = 50; // minimum swipe distance in pixels
-
-    if (Math.abs(deltaX) > threshold) {
-      if (deltaX > 0) {
-        // Swiped right = go to previous page
-        onPageChange(Math.max(0, currentPage - 1));
-      } else {
-        // Swiped left = go to next page
-        onPageChange(Math.min(layout.pages.length - 1, currentPage + 1));
-      }
-    }
+    const dx = e.clientX - dragStartRef.current.x;
+    if (Math.abs(dx) > 50) (dx > 0 ? onPrev : onNext)();
     dragStartRef.current = null;
   };
-
-  const page = layout.pages[currentPage];
 
   return (
     <div
       ref={containerRef}
-      onClick={handleCanvasClick}
+      onClick={handleClick}
       onMouseDown={handleMouseDown}
       onMouseUp={handleMouseUp}
-      className="flex items-center justify-center bg-neutral-900 select-none cursor-pointer"
+      className="flex h-full w-full cursor-pointer select-none items-center justify-center bg-gradient-to-b from-neutral-200 to-neutral-300"
       style={{ userSelect: "none" }}
     >
-      {page && (
-        <div className="relative shadow-2xl">
-          <PageCanvas
-            page={page}
-            photos={photos}
-            width={pageWidth}
-            height={pageHeight}
-          />
-          {/* Corner indicators for page turning */}
-          <div
-            className="absolute left-0 top-0 w-1/5 h-full opacity-0 hover:opacity-10 bg-white transition-opacity cursor-pointer"
-            title="ก่อนหน้า"
-          />
-          <div
-            className="absolute right-0 top-0 w-1/5 h-full opacity-0 hover:opacity-10 bg-white transition-opacity cursor-pointer"
-            title="ถัดไป"
-          />
-        </div>
-      )}
+      <BookFrame
+        width={pageWidth}
+        height={pageHeight}
+        left={left ? <PageCanvas page={left} photos={photos} width={pageWidth} height={pageHeight} /> : undefined}
+        right={right ? <PageCanvas page={right} photos={photos} width={pageWidth} height={pageHeight} /> : undefined}
+      />
     </div>
   );
 }

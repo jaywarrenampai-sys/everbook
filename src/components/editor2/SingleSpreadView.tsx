@@ -7,6 +7,7 @@ import { BookPage, UploadedPhoto } from "@/lib/editor/types";
 import { getTemplate } from "@/lib/editor/templates";
 import { clampPlacement, clamp, PAGE_H_OVER_W } from "@/lib/editor/layout";
 import FullBleedControls from "./FullBleedControls";
+import BookFrame from "./BookFrame";
 
 const ASPECT = PAGE_H_OVER_W; // height / width — true portrait A4 (297/210)
 
@@ -53,29 +54,23 @@ export default function SingleSpreadView() {
     <div ref={containerRef} className="scroll-touch flex flex-1 flex-col items-center overflow-auto bg-gradient-to-b from-muted to-background px-3 pt-5 pb-28 md:pt-8 md:pb-24">
       <Toolbar />
 
-      {isMobile ? (
-        <div className="mt-5 overflow-hidden rounded-2xl border-4 border-card shadow-2xl shadow-foreground/10">
-          {mobilePage && (
-            <EditablePage page={mobilePage} photos={photos} width={pageW} height={pageH} side="right" />
-          )}
-        </div>
-      ) : (
-        <div className="mt-6 flex overflow-hidden rounded-2xl border-4 border-card shadow-2xl shadow-foreground/10">
-          {leftPage ? (
+      <div className="mt-6">
+        <BookFrame
+          width={pageW}
+          height={pageH}
+          single={isMobile}
+          left={!isMobile && leftPage ? (
             <EditablePage page={leftPage} photos={photos} width={pageW} height={pageH} side="left" />
-          ) : (
-            <div style={{ width: pageW, height: pageH }} className="border-r border-border bg-muted" />
-          )}
-          <div className="w-[3px] shrink-0 bg-gradient-to-r from-foreground/15 to-foreground/5" style={{ height: pageH }} />
-          {rightPage ? (
-            <EditablePage page={rightPage} photos={photos} width={pageW} height={pageH} side="right" />
-          ) : (
-            <div style={{ width: pageW, height: pageH }} className="bg-muted" />
-          )}
-        </div>
-      )}
+          ) : undefined}
+          right={
+            isMobile
+              ? (mobilePage ? <EditablePage page={mobilePage} photos={photos} width={pageW} height={pageH} side="right" /> : undefined)
+              : (rightPage ? <EditablePage page={rightPage} photos={photos} width={pageW} height={pageH} side="right" /> : undefined)
+          }
+        />
+      </div>
 
-      <span className="mt-3 rounded-full bg-muted px-4 py-1.5 text-xs font-semibold text-muted-foreground">{sp.label}</span>
+      <span className="mt-5 rounded-full bg-muted px-4 py-1.5 text-xs font-semibold text-muted-foreground">{sp.label}</span>
     </div>
   );
 }
@@ -240,11 +235,7 @@ function EditablePage({
 
   const template = getTemplate(page.templateId);
   const photoById = (id?: string) => (id ? photos.find((p) => p.id === id) : undefined);
-
-  const spineShadow =
-    side === "left"
-      ? "shadow-[inset_-8px_0_16px_-8px_rgba(0,0,0,0.18)]"
-      : "shadow-[inset_8px_0_16px_-8px_rgba(0,0,0,0.18)]";
+  void side; // binding/spine shading now handled by BookFrame
 
   // ── Generic pointer drag for free elements ──
   function startDrag(
@@ -268,7 +259,7 @@ function EditablePage({
     <div
       data-page=""
       style={{ width, height, background: page.background ?? "#ffffff" }}
-      className={`relative shrink-0 overflow-hidden ${spineShadow}`}
+      className="relative shrink-0 overflow-hidden"
       onClick={(e) => {
         // Tap-to-place on a blank page: drop the armed photo where tapped
         if (armedPhotoId && page.templateId === "blank") {

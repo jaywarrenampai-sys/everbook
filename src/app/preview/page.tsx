@@ -3,18 +3,19 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useEditorStore } from "@/lib/store/editorStore";
+import { buildSpreads } from "@/lib/editor/spreads";
 import BookViewer from "@/components/preview/BookViewer";
 import PreviewControls from "@/components/preview/PreviewControls";
 
 /**
  * Book preview page
- * Full-screen viewer with page navigation for the photobook
+ * Full-screen viewer that turns the book one spread at a time.
  */
 export default function PreviewPage() {
   const router = useRouter();
   const layout = useEditorStore((s) => s.layout);
   const photos = useEditorStore((s) => s.photos);
-  const [currentPage, setCurrentPage] = useState(0);
+  const [spreadIndex, setSpreadIndex] = useState(0);
 
   // If no pages loaded, redirect to editor
   useEffect(() => {
@@ -34,15 +35,23 @@ export default function PreviewPage() {
     );
   }
 
+  const spreads = buildSpreads(layout.pages);
+  const idx = Math.min(spreadIndex, spreads.length - 1);
+  const spread = spreads[idx];
+
+  const goPrev = () => setSpreadIndex(Math.max(0, idx - 1));
+  const goNext = () => setSpreadIndex(Math.min(spreads.length - 1, idx + 1));
+
   return (
     <div className="flex flex-col h-screen bg-neutral-900">
       {/* Viewer */}
       <div className="flex-1 overflow-hidden">
         <BookViewer
-          layout={layout}
+          left={spread?.left ?? null}
+          right={spread?.right ?? null}
           photos={photos}
-          currentPage={currentPage}
-          onPageChange={setCurrentPage}
+          onPrev={goPrev}
+          onNext={goNext}
         />
       </div>
 
@@ -50,12 +59,10 @@ export default function PreviewPage() {
       <div className="border-t border-neutral-800 bg-neutral-950 p-6">
         <div className="flex items-center justify-between gap-4">
           <PreviewControls
-            currentPage={currentPage}
-            totalPages={layout.pages.length}
-            onPrevious={() => setCurrentPage(Math.max(0, currentPage - 1))}
-            onNext={() =>
-              setCurrentPage(Math.min(layout.pages.length - 1, currentPage + 1))
-            }
+            currentPage={idx}
+            totalPages={spreads.length}
+            onPrevious={goPrev}
+            onNext={goNext}
           />
           <button
             onClick={() => router.push("/editor")}

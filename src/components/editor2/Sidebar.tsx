@@ -17,22 +17,14 @@ import { UploadedPhoto } from "@/lib/editor/types";
 import { TEMPLATES, getTemplate } from "@/lib/editor/templates";
 import { uid } from "@/lib/uid";
 
-// ── Sticker library types (from the auto-discovery API) ──
-interface StickerCategory { id: string; label: string; emoji: string; count: number }
-interface StickerItem { id: string; category: string; name: string; src: string }
+// ── Library types (from the auto-discovery APIs) ──
+interface LibCategory { id: string; label: string; emoji: string; count: number }
+interface LibItem { id: string; category: string; name: string; src: string }
 
-// Solid background swatches for the Backgrounds panel
-const BACKGROUNDS = [
-  "#ffffff",
-  "#F7F3EC",
-  "#EDE4D6",
-  "#F3D7CB",
-  "#FBE8C9",
-  "#D7EFE4",
-  "#D6E6F2",
-  "#6E7B5B",
-  "#B4734E",
-  "#2E2620",
+// 10 pastel solid colours for the "Solid Colors" background tab (not files)
+const SOLID_COLORS = [
+  "#ffffff", "#fce4ec", "#f8d7e3", "#ffe3c2", "#fff3bf",
+  "#e6fcf5", "#d3f9d8", "#d0ebff", "#e5dbff", "#ffe8cc",
 ];
 
 async function processFiles(files: FileList): Promise<UploadedPhoto[]> {
@@ -115,6 +107,7 @@ export default function Sidebar({ onArm }: { onArm?: () => void } = {}) {
   const autofill = useEditorStore((s) => s.autofill);
   const applyTemplate = useEditorStore((s) => s.applyTemplate);
   const setBackground = useEditorStore((s) => s.setBackground);
+  const setBackgroundAll = useEditorStore((s) => s.setBackgroundAll);
   const addSticker = useEditorStore((s) => s.addSticker);
   const layout = useEditorStore((s) => s.layout);
 
@@ -124,19 +117,28 @@ export default function Sidebar({ onArm }: { onArm?: () => void } = {}) {
   const [uploading, setUploading] = useState(false);
 
   // ── Sticker library (lazy / category loading) ──
-  const [stickerCats, setStickerCats] = useState<StickerCategory[]>([]);
+  const [stickerCats, setStickerCats] = useState<LibCategory[]>([]);
   const [stickerCat, setStickerCat] = useState<string>("");
-  const [itemsByCat, setItemsByCat] = useState<Record<string, StickerItem[]>>({});
+  const [itemsByCat, setItemsByCat] = useState<Record<string, LibItem[]>>({});
   const [stickerQuery, setStickerQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<StickerItem[] | null>(null);
+  const [searchResults, setSearchResults] = useState<LibItem[] | null>(null);
   const [stickersLoading, setStickersLoading] = useState(false);
+
+  // ── Background library (lazy) ──
+  const [bgCats, setBgCats] = useState<LibCategory[]>([]);
+  const [bgCat, setBgCat] = useState<string>("solid-colors");
+  const [bgByCat, setBgByCat] = useState<Record<string, LibItem[]>>({});
+  const [bgQuery, setBgQuery] = useState("");
+  const [bgResults, setBgResults] = useState<LibItem[] | null>(null);
+  const [bgLoading, setBgLoading] = useState(false);
+  const [bgScope, setBgScope] = useState<"current" | "all">("current");
 
   // Load category list once, the first time the Stickers panel is opened.
   useEffect(() => {
     if (activePanel !== "stickers" || stickerCats.length > 0) return;
     fetch("/api/stickers")
       .then((r) => r.json())
-      .then((d: { categories: StickerCategory[] }) => {
+      .then((d: { categories: LibCategory[] }) => {
         setStickerCats(d.categories ?? []);
         if (d.categories?.[0]) setStickerCat((c) => c || d.categories[0].id);
       })
@@ -149,14 +151,14 @@ export default function Sidebar({ onArm }: { onArm?: () => void } = {}) {
     setStickersLoading(true);
     fetch(`/api/stickers/${stickerCat}`)
       .then((r) => r.json())
-      .then((d: { stickers: StickerItem[] }) =>
+      .then((d: { stickers: LibItem[] }) =>
         setItemsByCat((m) => ({ ...m, [stickerCat]: d.stickers ?? [] }))
       )
       .catch(() => {})
       .finally(() => setStickersLoading(false));
   }, [activePanel, stickerCat, itemsByCat]);
 
-  // Debounced cross-category search.
+  // Debounced cross-category sticker search.
   useEffect(() => {
     const q = stickerQuery.trim();
     if (!q) { setSearchResults(null); return; }
@@ -164,12 +166,47 @@ export default function Sidebar({ onArm }: { onArm?: () => void } = {}) {
       setStickersLoading(true);
       fetch(`/api/stickers?q=${encodeURIComponent(q)}`)
         .then((r) => r.json())
-        .then((d: { stickers: StickerItem[] }) => setSearchResults(d.stickers ?? []))
+        .then((d: { stickers: LibItem[] }) => setSearchResults(d.stickers ?? []))
         .catch(() => setSearchResults([]))
         .finally(() => setStickersLoading(false));
     }, 250);
     return () => clearTimeout(t);
   }, [stickerQuery]);
+
+  // Load background category list once when the Backgrounds panel opens.
+  useEffect(() => {
+    if (activePanel !== "backgrounds" || bgCats.length > 0) return;
+    fetch("/api/backgrounds")
+      .then((r) => r.json())
+      .then((d: { categories: LibCategory[] }) => setBgCats(d.categories ?? []))
+      .catch(() => {});
+  }, [activePanel, bgCats.length]);
+
+  // Lazily load the active background category (skip the special solid-colors).
+  useEffect(() => {
+    if (activePanel !== "backgrounds" || bgCat === "solid-colors" || bgByCat[bgCat]) return;
+    setBgLoading(true);
+    fetch(`/api/backgrounds/${bgCat}`)
+      .then((r) => r.json())
+      .then((d: { backgrounds: LibItem[] }) => setBgByCat((m) => ({ ...m, [bgCat]: d.backgrounds ?? [] })))
+      .catch(() => {})
+      .finally(() => setBgLoading(false));
+  }, [activePanel, bgCat, bgByCat]);
+
+  // Debounced background search.
+  useEffect(() => {
+    const q = bgQuery.trim();
+    if (!q) { setBgResults(null); return; }
+    const t = setTimeout(() => {
+      setBgLoading(true);
+      fetch(`/api/backgrounds?q=${encodeURIComponent(q)}`)
+        .then((r) => r.json())
+        .then((d: { backgrounds: LibItem[] }) => setBgResults(d.backgrounds ?? []))
+        .catch(() => setBgResults([]))
+        .finally(() => setBgLoading(false));
+    }, 250);
+    return () => clearTimeout(t);
+  }, [bgQuery]);
 
   const currentPage = layout.pages[layout.currentPageIndex];
 
@@ -204,13 +241,26 @@ export default function Sidebar({ onArm }: { onArm?: () => void } = {}) {
   }, [activePanel, stickerCats.length, stickerQuery]);
 
   // Stickers shown: search results take precedence, else the active category.
-  const shownStickers: StickerItem[] = searchResults ?? itemsByCat[stickerCat] ?? [];
+  const shownStickers: LibItem[] = searchResults ?? itemsByCat[stickerCat] ?? [];
 
-  function placeSticker(st: StickerItem) {
+  function placeSticker(st: LibItem) {
     if (!currentPage) return;
     addSticker(currentPage.id, st.id, st.category, st.src); // centred on current page
     onArm?.();
   }
+
+  // Apply a background (hex colour or image src) to current page or all pages.
+  function applyBackground(value?: string) {
+    if (bgScope === "all") setBackgroundAll(value);
+    else if (currentPage) setBackground(currentPage.id, value);
+  }
+
+  // Tabs for the background panel: Solid Colors (special) + discovered file cats.
+  const bgTabs: LibCategory[] = [
+    { id: "solid-colors", label: "Solid Colors", emoji: "🎨", count: SOLID_COLORS.length },
+    ...bgCats.filter((c) => c.id !== "solid-colors"),
+  ];
+  const shownBackgrounds: LibItem[] = bgResults ?? bgByCat[bgCat] ?? [];
 
   return (
     <div className="flex h-full shrink-0 gap-2 p-2">
@@ -364,22 +414,101 @@ export default function Sidebar({ onArm }: { onArm?: () => void } = {}) {
           </div>
         )}
 
-        {/* ── BACKGROUNDS ── */}
+        {/* ── BACKGROUNDS LIBRARY ── */}
         {activePanel === "backgrounds" && (
-          <div className="flex-1 overflow-y-auto p-4">
-            <h2 className="mb-3 font-heading text-base font-bold text-foreground">พื้นหลังหน้านี้</h2>
-            <div className="grid grid-cols-5 gap-2.5">
-              {BACKGROUNDS.map((bg) => (
-                <button
-                  key={bg}
-                  onClick={() => currentPage && setBackground(currentPage.id, bg === "#ffffff" ? undefined : bg)}
-                  className={`aspect-square rounded-xl border-2 transition-transform hover:scale-110 ${
-                    currentPage?.background === bg ? "border-foreground" : "border-border"
-                  }`}
-                  style={{ background: bg }}
-                  title={bg}
+          <div className="flex flex-1 flex-col overflow-hidden">
+            {/* Search */}
+            <div className="border-b border-border/60 p-3">
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  value={bgQuery}
+                  onChange={(e) => setBgQuery(e.target.value)}
+                  placeholder="ค้นหาพื้นหลัง…"
+                  className="w-full rounded-2xl border-2 border-border bg-secondary/30 py-2 pl-9 pr-3 text-sm text-foreground outline-none focus:ring-2 focus:ring-primary/40"
                 />
-              ))}
+              </div>
+            </div>
+
+            {/* Apply scope toggle */}
+            <div className="flex items-center justify-between gap-2 border-b border-border/60 px-3 py-2">
+              <span className="text-xs font-medium text-muted-foreground">ใช้กับ</span>
+              <div className="inline-flex rounded-full border-2 border-border bg-card p-0.5">
+                <button
+                  onClick={() => setBgScope("current")}
+                  className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${bgScope === "current" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}
+                >
+                  หน้านี้
+                </button>
+                <button
+                  onClick={() => setBgScope("all")}
+                  className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${bgScope === "all" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}
+                >
+                  ทุกหน้า
+                </button>
+              </div>
+            </div>
+
+            {/* Category chips (hidden while searching) */}
+            {!bgQuery.trim() && (
+              <div className="no-scrollbar flex gap-1.5 overflow-x-auto border-b border-border/60 p-3">
+                {bgTabs.map((c) => (
+                  <button
+                    key={c.id}
+                    onClick={() => setBgCat(c.id)}
+                    title={c.label}
+                    className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
+                      bgCat === c.id ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                    }`}
+                  >
+                    {c.emoji} {c.label}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Grid */}
+            <div className="flex-1 overflow-y-auto p-3">
+              {/* Solid colours tab */}
+              {!bgQuery.trim() && bgCat === "solid-colors" ? (
+                <div className="grid grid-cols-5 gap-2.5">
+                  {SOLID_COLORS.map((c) => (
+                    <button
+                      key={c}
+                      onClick={() => applyBackground(c === "#ffffff" ? undefined : c)}
+                      className={`aspect-square rounded-xl border-2 transition-transform hover:scale-110 ${
+                        currentPage?.background === c ? "border-foreground" : "border-border"
+                      }`}
+                      style={{ background: c }}
+                      title={c}
+                    />
+                  ))}
+                </div>
+              ) : bgLoading && shownBackgrounds.length === 0 ? (
+                <div className="py-10 text-center text-sm text-muted-foreground">กำลังโหลด…</div>
+              ) : shownBackgrounds.length === 0 ? (
+                <div className="flex flex-col items-center gap-2 rounded-2xl border-2 border-dashed border-border py-10 text-center text-muted-foreground">
+                  <span className="text-2xl">🖼️</span>
+                  <p className="text-sm font-medium">{bgQuery.trim() ? "ไม่พบพื้นหลัง" : "ยังไม่มีพื้นหลังในหมวดนี้"}</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-3 gap-2">
+                  {shownBackgrounds.map((bg) => (
+                    <button
+                      key={bg.id}
+                      onClick={() => applyBackground(bg.src)}
+                      className={`overflow-hidden rounded-xl border-2 transition-transform hover:-translate-y-0.5 ${
+                        currentPage?.background === bg.src ? "border-primary ring-2 ring-primary/40" : "border-border"
+                      }`}
+                      style={{ aspectRatio: "210 / 297" }}
+                      title={bg.name}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={bg.src} alt={bg.name} loading="lazy" draggable={false} className="size-full object-cover" />
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}

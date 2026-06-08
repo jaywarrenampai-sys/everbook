@@ -11,7 +11,9 @@ const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
     "/api/stickers": ["./public/stickers/**/*"],
     "/api/stickers/[category]": ["./public/stickers/**/*"],
-    "/api/export-pdf": ["./public/stickers/**/*"],
+    "/api/backgrounds": ["./public/backgrounds/**/*"],
+    "/api/backgrounds/[category]": ["./public/backgrounds/**/*"],
+    "/api/export-pdf": ["./public/stickers/**/*", "./public/backgrounds/**/*"],
   },
 
   // Allow images from Supabase storage and Omise CDN (QR codes)

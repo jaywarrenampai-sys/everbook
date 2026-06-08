@@ -6,6 +6,7 @@ import { useIsMobile } from "@/lib/useIsMobile";
 import { BookPage, UploadedPhoto } from "@/lib/editor/types";
 import { getTemplate } from "@/lib/editor/templates";
 import { clampPlacement, clamp, PAGE_H_OVER_W } from "@/lib/editor/layout";
+import { backgroundColor, backgroundImageSrc } from "@/lib/editor/background";
 import FullBleedControls from "./FullBleedControls";
 import BookFrame from "./BookFrame";
 
@@ -258,7 +259,7 @@ function EditablePage({
   return (
     <div
       data-page=""
-      style={{ width, height, background: page.background ?? "#ffffff" }}
+      style={{ width, height, background: backgroundColor(page.background) }}
       className="relative shrink-0 overflow-hidden"
       onClick={(e) => {
         // Tap-to-place on a blank page: drop the armed photo where tapped
@@ -296,6 +297,12 @@ function EditablePage({
         placeFree(page.id, photoId, fx, fy);
       }}
     >
+      {/* Image background — behind all content */}
+      {backgroundImageSrc(page.background) && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={backgroundImageSrc(page.background)!} alt="" draggable={false} className="pointer-events-none absolute inset-0 h-full w-full object-cover" />
+      )}
+
       {/* Template slots */}
       {template.slots.map((slot) => {
         const photo = photoById(page.slotFills[slot.id]);

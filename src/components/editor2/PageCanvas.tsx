@@ -2,18 +2,13 @@
 
 import { BookPage, UploadedPhoto } from "@/lib/editor/types";
 import { getTemplate } from "@/lib/editor/templates";
+import { backgroundColor, backgroundImageSrc } from "@/lib/editor/background";
 
 interface Props {
   page: BookPage | null;
   photos: UploadedPhoto[];
   width: number;
   height: number;
-}
-
-/** Resolve a background id/hex to a CSS value. */
-function bgToCss(bg?: string): string {
-  if (!bg) return "#ffffff";
-  return bg; // hex or css color
 }
 
 /**
@@ -43,11 +38,19 @@ export default function PageCanvas({ page, photos, width, height }: Props) {
     return `translate(${translateX}%, ${translateY}%) scale(${zoomPercent})`;
   };
 
+  const bgImg = backgroundImageSrc(page.background);
+
   return (
     <div
-      style={{ width, height, background: bgToCss(page.background) }}
+      style={{ width, height, background: backgroundColor(page.background) }}
       className="relative shrink-0 overflow-hidden"
     >
+      {/* Image background — sits behind all content */}
+      {bgImg && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={bgImg} alt="" draggable={false} className="absolute inset-0 h-full w-full object-cover" />
+      )}
+
       {/* Template slots */}
       {template.slots.map((slot) => {
         const photo = photoById(page.slotFills[slot.id]);

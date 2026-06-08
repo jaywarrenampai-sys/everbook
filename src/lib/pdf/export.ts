@@ -21,6 +21,7 @@ import { getTemplate } from "@/lib/editor/templates";
 import { PAGE_ASPECT_RATIO } from "@/lib/editor/layout";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { isImageBackground, backgroundImageSrc, backgroundColor } from "@/lib/editor/background";
 
 /** Parse "#rrggbb" or "#rrggbbaa" → pdf-lib color + opacity */
 function parseFill(hex: string): { color: ReturnType<typeof rgb>; opacity: number } {
@@ -123,14 +124,28 @@ async function renderPage(
   // Our layout: origin is top-left, y increases downward — flip required
   const page = doc.addPage([FULL_W_PT, FULL_H_PT]);
 
-  // ── White page background (inside bleed area) ────────────────────────────
-  page.drawRectangle({
-    x: BLEED_PT,
-    y: BLEED_PT,
-    width: PAGE_W_PT,
-    height: PAGE_H_PT,
-    color: rgb(1, 1, 1),
-  });
+  // ── Page background (colour or image) inside bleed area ──────────────────
+  const bg = bookPage.background;
+  let drewBgImage = false;
+  if (isImageBackground(bg)) {
+    const src = backgroundImageSrc(bg);
+    const ext = src?.split(".").pop()?.toLowerCase();
+    if (src && (ext === "png" || ext === "jpg" || ext === "jpeg")) {
+      try {
+        const bytes = await readFile(join(process.cwd(), "public", src.replace(/^\//, "")));
+        const img = ext === "png" ? await doc.embedPng(bytes) : await doc.embedJpg(bytes);
+        page.drawRectangle({ x: BLEED_PT, y: BLEED_PT, width: PAGE_W_PT, height: PAGE_H_PT, color: rgb(1, 1, 1) });
+        page.drawImage(img, { x: BLEED_PT, y: BLEED_PT, width: PAGE_W_PT, height: PAGE_H_PT });
+        drewBgImage = true;
+      } catch {
+        // .svg/.webp or unreadable → fall back to white (flagged)
+      }
+    }
+  }
+  if (!drewBgImage) {
+    const { color } = parseFill(backgroundColor(bg));
+    page.drawRectangle({ x: BLEED_PT, y: BLEED_PT, width: PAGE_W_PT, height: PAGE_H_PT, color });
+  }
 
   // ── Draw bleed marks (crop marks) ───────────────────────────────────────
   drawCropMarks(page, FULL_W_PT, FULL_H_PT, BLEED_PT);

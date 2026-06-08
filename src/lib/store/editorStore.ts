@@ -96,6 +96,7 @@ interface EditorState {
   removeSelected: () => void;
   applyTemplate: (pageId: string, templateId: string) => void;
   setBackground: (pageId: string, background?: string) => void;
+  setBackgroundAll: (background?: string) => void;
   setFullBleed: (pageId: string, fullBleed: boolean) => void;
   setCropX: (pageId: string, cropX: number) => void;
   setCropY: (pageId: string, cropY: number) => void;
@@ -266,6 +267,8 @@ export const useEditorStore = create<EditorState>((set, get) => {
       commit(mapPage(pageId, (p) => applyTemplateToPage(p, templateId))),
     setBackground: (pageId, background) =>
       commit(mapPage(pageId, (p) => setBackgroundOnPage(p, background))),
+    setBackgroundAll: (background) =>
+      commit((pages) => pages.map((p) => setBackgroundOnPage(p, background))),
     setFullBleed: (pageId, fullBleed) =>
       commit(mapPage(pageId, (p) => setFullBleedOnPage(p, fullBleed))),
     setCropX: (pageId, cropX) =>

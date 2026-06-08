@@ -151,6 +151,43 @@ function snapshot(layout: BookLayout): BookLayout {
   return structuredClone(layout);
 }
 
+/**
+ * Plan a sequence of photos-per-page for the AI auto layout.
+ * Mixes 1 / 2 / 3 / 4-photo pages, avoids repeating the same density back to
+ * back, and clamps the final page to whatever photos remain (no empty pages).
+ */
+function planLayoutSizes(n: number): number[] {
+  if (n <= 0) return [];
+  // Rotation of densities — varied, no long runs of the same size.
+  const cycle = [1, 3, 2, 4, 2, 1, 4, 3];
+  const sizes: number[] = [];
+  let remaining = n;
+  let ci = 0;
+  let last = -1;
+  while (remaining > 0) {
+    let size = cycle[ci % cycle.length];
+    ci++;
+    if (size === last) {
+      // avoid two identical densities in a row
+      size = cycle[ci % cycle.length];
+      ci++;
+    }
+    if (size > remaining) size = remaining; // last page fits exactly
+    sizes.push(size);
+    remaining -= size;
+    last = size;
+  }
+  return sizes;
+}
+
+/** Map a photos-per-page count to a template id (alternating the 2-up style). */
+function templateForSize(size: number, twoIndex: number): string {
+  if (size <= 1) return "full";
+  if (size === 2) return twoIndex % 2 === 0 ? "two-v" : "two-h";
+  if (size === 3) return "feature-left";
+  return "four-grid";
+}
+
 // ─── Store ────────────────────────────────────────────────────────────────────
 
 export const useEditorStore = create<EditorState>((set, get) => {
@@ -337,37 +374,42 @@ export const useEditorStore = create<EditorState>((set, get) => {
         return next;
       }),
 
-    // ── Smart features ──
+    // ── AI auto layout ──
     smartCreate: () => {
       const { photos } = get();
       if (photos.length === 0) return;
       commit(() => {
         const pages: BookPage[] = [];
-        // Cover with the first photo
+
+        // Cover — first photo, full bleed feel
         const cover = newPage("full");
         cover.isCover = true;
         cover.slotFills = { s0: photos[0].id };
+        cover.images = [photos[0].id];
         pages.push(cover);
 
-        // Inside cover blank
-        pages.push(newPage("blank"));
-
-        // Distribute the rest across content pages
-        let i = 1;
-        while (i < photos.length) {
-          const remaining = photos.length - i;
-          const take = remaining >= 4 ? 4 : remaining;
-          const tmplId = take === 1 ? "full" : take === 2 ? "two-v" : take === 3 ? "feature-left" : "four-grid";
+        // Distribute the rest across varied content pages (no empty pages)
+        const rest = photos.slice(1);
+        const sizes = planLayoutSizes(rest.length);
+        let idx = 0;
+        let twoIndex = 0;
+        for (const size of sizes) {
+          const tmplId = templateForSize(size, twoIndex);
+          if (size === 2) twoIndex++;
           const page = newPage(tmplId);
           const slots = getTemplate(tmplId).slots;
+          const used: string[] = [];
           slots.forEach((slot, k) => {
-            if (photos[i + k]) page.slotFills[slot.id] = photos[i + k].id;
+            const ph = rest[idx + k];
+            if (ph) {
+              page.slotFills[slot.id] = ph.id;
+              used.push(ph.id);
+            }
           });
+          page.images = used;
           pages.push(page);
-          i += take;
+          idx += size;
         }
-        // Ensure even page count for spreads
-        if (pages.length % 2 !== 0) pages.push(newPage("blank"));
         return pages;
       });
     },

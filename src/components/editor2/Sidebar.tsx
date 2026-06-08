@@ -322,7 +322,7 @@ export default function Sidebar({ onArm }: { onArm?: () => void } = {}) {
                   className="inline-flex items-center justify-center gap-1.5 rounded-2xl bg-sky px-3 py-2.5 text-xs font-bold text-sky-foreground transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:translate-y-0"
                 >
                   <Sparkles className="size-3.5" />
-                  สร้างอัตโนมัติ
+                  สร้างหนังสืออัตโนมัติ
                 </button>
                 <button
                   onClick={autofill}

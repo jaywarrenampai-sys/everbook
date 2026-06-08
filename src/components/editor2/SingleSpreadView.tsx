@@ -292,9 +292,10 @@ function EditablePage({
         // Sticker drop (allowed on any template)
         const stickerId = e.dataTransfer.getData("stickerId");
         const stickerSrc = e.dataTransfer.getData("stickerSrc");
+        const stickerCat = e.dataTransfer.getData("stickerCategory");
         if (stickerId && stickerSrc) {
           e.preventDefault();
-          addSticker(page.id, stickerId, stickerSrc, fx, fy);
+          addSticker(page.id, stickerId, stickerCat, stickerSrc, fx, fy);
           return;
         }
         // Photo drop (blank pages only)

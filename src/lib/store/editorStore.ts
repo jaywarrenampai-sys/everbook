@@ -106,7 +106,7 @@ interface EditorState {
   updateTextBox: (pageId: string, box: TextBox) => void;
 
   // ── Stickers ──
-  addSticker: (pageId: string, stickerId: string, src: string, x?: number, y?: number) => void;
+  addSticker: (pageId: string, stickerId: string, category: string, src: string, x?: number, y?: number) => void;
   updateSticker: (pageId: string, sticker: Sticker) => void;
   duplicateSticker: (pageId: string, stickerId: string) => void;
 
@@ -280,11 +280,11 @@ export const useEditorStore = create<EditorState>((set, get) => {
     updateTextBox: (pageId, box) => commit(mapPage(pageId, (p) => updateTextOnPage(p, box))),
 
     // ── Stickers ──
-    addSticker: (pageId, stickerId, src, x, y) => {
+    addSticker: (pageId, stickerId, category, src, x, y) => {
       // zIndex = one above the current max on this page
       const page = get().layout.pages.find((p) => p.id === pageId);
       const maxZ = Math.max(0, ...(page?.stickers ?? []).map((s) => s.zIndex));
-      const sticker = defaultSticker(stickerId, src, x, y, maxZ + 1);
+      const sticker = defaultSticker(stickerId, category, src, x, y, maxZ + 1);
       commit(mapPage(pageId, (p) => addStickerToPage(p, sticker)));
       set({ selection: { pageId, kind: "sticker", id: sticker.id } });
     },

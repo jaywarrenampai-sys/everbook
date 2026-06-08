@@ -19,7 +19,8 @@ import { PDFDocument, rgb, degrees, PDFOperator } from "pdf-lib";
 import { BookLayout } from "@/lib/editor/types";
 import { getTemplate } from "@/lib/editor/templates";
 import { PAGE_ASPECT_RATIO } from "@/lib/editor/layout";
-import { STICKER_PATHS } from "@/lib/stickers/paths";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 
 /** Parse "#rrggbb" or "#rrggbbaa" → pdf-lib color + opacity */
 function parseFill(hex: string): { color: ReturnType<typeof rgb>; opacity: number } {
@@ -165,34 +166,46 @@ async function renderPage(
     }
   }
 
-  // ── Stickers (drawn on top, vector — uses same fraction coords) ─────────
+  // ── Stickers (drawn on top — read discovered asset files at export time) ─
+  // Square box of side S based on the width fraction (same coords as editor).
   for (const sticker of bookPage.stickers ?? []) {
-    const art = STICKER_PATHS[sticker.stickerId];
-    if (!art) continue;
-
-    // Square art (100×100). Draw at side S based on width fraction.
     const S = sticker.width * PAGE_W_PT;
-    const scale = S / 100;
     const cxFrac = sticker.x + sticker.width / 2;
     const cyFrac = sticker.y + sticker.height / 2;
     const cx = BLEED_PT + cxFrac * PAGE_W_PT;
     const cy = BLEED_PT + PAGE_H_PT - cyFrac * PAGE_H_PT; // flip y
     const r = (-sticker.rotation * Math.PI) / 180; // editor clockwise → pdf ccw
+    const ext = sticker.src.split(".").pop()?.toLowerCase();
 
-    // Position the SVG top-left origin so the art rotates about its centre
-    const x = cx - Math.cos(r) * (S / 2) - Math.sin(r) * (S / 2);
-    const y = cy - Math.sin(r) * (S / 2) + Math.cos(r) * (S / 2);
+    // Absolute path to the asset bundled under public/
+    const filePath = join(process.cwd(), "public", sticker.src.replace(/^\//, ""));
 
-    for (const p of art.paths) {
-      const { color, opacity } = parseFill(p.fill);
-      page.drawSvgPath(p.d, {
-        x,
-        y,
-        scale,
-        rotate: degrees(-sticker.rotation),
-        color,
-        opacity,
-      });
+    try {
+      if (ext === "svg") {
+        // Parse <path d="..." fill="..."/> elements and draw as vectors.
+        const svg = await readFile(filePath, "utf8");
+        const scale = S / 100; // sample stickers use a 0–100 viewBox
+        // SVG-path origin (top-left), positioned so it rotates about centre
+        const x = cx - Math.cos(r) * (S / 2) - Math.sin(r) * (S / 2);
+        const y = cy - Math.sin(r) * (S / 2) + Math.cos(r) * (S / 2);
+        const pathRe = /<path[^>]*\sd="([^"]+)"[^>]*?(?:\sfill="([^"]+)")?[^>]*\/?>/g;
+        let m: RegExpExecArray | null;
+        while ((m = pathRe.exec(svg)) !== null) {
+          const { color, opacity } = parseFill(m[2] || "#000000");
+          page.drawSvgPath(m[1], { x, y, scale, rotate: degrees(-sticker.rotation), color, opacity });
+        }
+      } else if (ext === "png" || ext === "jpg" || ext === "jpeg") {
+        const bytes = await readFile(filePath);
+        const img = ext === "png" ? await doc.embedPng(bytes) : await doc.embedJpg(bytes);
+        // Image origin is bottom-left; offset so it rotates about centre.
+        const x = cx - Math.cos(r) * (S / 2) + Math.sin(r) * (S / 2);
+        const y = cy - Math.sin(r) * (S / 2) - Math.cos(r) * (S / 2);
+        page.drawImage(img, { x, y, width: S, height: S, rotate: degrees(-sticker.rotation) });
+      }
+      // NOTE: .webp is not embeddable by pdf-lib — skipped in print until a
+      // server-side rasteriser is added. Editor + preview still show it.
+    } catch (e) {
+      console.warn(`Sticker render failed for ${sticker.src}:`, e);
     }
   }
 

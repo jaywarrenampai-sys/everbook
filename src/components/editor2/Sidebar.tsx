@@ -1,22 +1,25 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ImageIcon,
   ImagePlus,
   Layout,
   LayoutGrid,
   Palette,
+  Search,
   Smile,
   Sparkles,
   Upload,
 } from "lucide-react";
-import { Search } from "lucide-react";
 import { useEditorStore, Panel } from "@/lib/store/editorStore";
 import { UploadedPhoto } from "@/lib/editor/types";
 import { TEMPLATES, getTemplate } from "@/lib/editor/templates";
-import { STICKERS, STICKER_CATEGORIES } from "@/lib/stickers/manifest";
 import { uid } from "@/lib/uid";
+
+// ── Sticker library types (from the auto-discovery API) ──
+interface StickerCategory { id: string; label: string; emoji: string; count: number }
+interface StickerItem { id: string; category: string; name: string; src: string }
 
 // Solid background swatches for the Backgrounds panel
 const BACKGROUNDS = [
@@ -117,8 +120,54 @@ export default function Sidebar({ onArm }: { onArm?: () => void } = {}) {
 
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
-  const [stickerCat, setStickerCat] = useState<string>("all");
+
+  // ── Sticker library (lazy / category loading) ──
+  const [stickerCats, setStickerCats] = useState<StickerCategory[]>([]);
+  const [stickerCat, setStickerCat] = useState<string>("");
+  const [itemsByCat, setItemsByCat] = useState<Record<string, StickerItem[]>>({});
   const [stickerQuery, setStickerQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<StickerItem[] | null>(null);
+  const [stickersLoading, setStickersLoading] = useState(false);
+
+  // Load category list once, the first time the Stickers panel is opened.
+  useEffect(() => {
+    if (activePanel !== "stickers" || stickerCats.length > 0) return;
+    fetch("/api/stickers")
+      .then((r) => r.json())
+      .then((d: { categories: StickerCategory[] }) => {
+        setStickerCats(d.categories ?? []);
+        if (d.categories?.[0]) setStickerCat((c) => c || d.categories[0].id);
+      })
+      .catch(() => {});
+  }, [activePanel, stickerCats.length]);
+
+  // Lazily load the active category's stickers (cached after first fetch).
+  useEffect(() => {
+    if (activePanel !== "stickers" || !stickerCat || itemsByCat[stickerCat]) return;
+    setStickersLoading(true);
+    fetch(`/api/stickers/${stickerCat}`)
+      .then((r) => r.json())
+      .then((d: { stickers: StickerItem[] }) =>
+        setItemsByCat((m) => ({ ...m, [stickerCat]: d.stickers ?? [] }))
+      )
+      .catch(() => {})
+      .finally(() => setStickersLoading(false));
+  }, [activePanel, stickerCat, itemsByCat]);
+
+  // Debounced cross-category search.
+  useEffect(() => {
+    const q = stickerQuery.trim();
+    if (!q) { setSearchResults(null); return; }
+    const t = setTimeout(() => {
+      setStickersLoading(true);
+      fetch(`/api/stickers?q=${encodeURIComponent(q)}`)
+        .then((r) => r.json())
+        .then((d: { stickers: StickerItem[] }) => setSearchResults(d.stickers ?? []))
+        .catch(() => setSearchResults([]))
+        .finally(() => setStickersLoading(false));
+    }, 250);
+    return () => clearTimeout(t);
+  }, [stickerQuery]);
 
   const currentPage = layout.pages[layout.currentPageIndex];
 
@@ -136,17 +185,12 @@ export default function Sidebar({ onArm }: { onArm?: () => void } = {}) {
   const usedTotal = photos.filter((p) => usageCount(p.id) > 0).length;
   const shown = hideUsed ? photos.filter((p) => usageCount(p.id) === 0) : photos;
 
-  // ── Sticker filtering (category + search) ──
-  const q = stickerQuery.trim().toLowerCase();
-  const shownStickers = STICKERS.filter((st) => {
-    if (stickerCat !== "all" && st.category !== stickerCat) return false;
-    if (!q) return true;
-    return st.keywords.some((k) => k.toLowerCase().includes(q)) || st.name.includes(q);
-  });
+  // Stickers shown: search results take precedence, else the active category.
+  const shownStickers: StickerItem[] = searchResults ?? itemsByCat[stickerCat] ?? [];
 
-  function placeSticker(stickerId: string, src: string) {
+  function placeSticker(st: StickerItem) {
     if (!currentPage) return;
-    addSticker(currentPage.id, stickerId, src); // centred on current page
+    addSticker(currentPage.id, st.id, st.category, st.src); // centred on current page
     onArm?.();
   }
 
@@ -338,36 +382,34 @@ export default function Sidebar({ onArm }: { onArm?: () => void } = {}) {
               </div>
             </div>
 
-            {/* Category chips */}
-            <div className="no-scrollbar flex gap-1.5 overflow-x-auto border-b border-border/60 p-3">
-              <button
-                onClick={() => setStickerCat("all")}
-                className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
-                  stickerCat === "all" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
-                }`}
-              >
-                ทั้งหมด
-              </button>
-              {STICKER_CATEGORIES.map((c) => (
-                <button
-                  key={c.id}
-                  onClick={() => setStickerCat(c.id)}
-                  title={c.label}
-                  className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
-                    stickerCat === c.id ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
-                  }`}
-                >
-                  {c.emoji} {c.th}
-                </button>
-              ))}
-            </div>
+            {/* Category chips (hidden while searching) */}
+            {!stickerQuery.trim() && (
+              <div className="no-scrollbar flex gap-1.5 overflow-x-auto border-b border-border/60 p-3">
+                {stickerCats.map((c) => (
+                  <button
+                    key={c.id}
+                    onClick={() => setStickerCat(c.id)}
+                    title={c.label}
+                    className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
+                      stickerCat === c.id ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                    }`}
+                  >
+                    {c.emoji} {c.label}
+                  </button>
+                ))}
+              </div>
+            )}
 
             {/* Sticker grid */}
             <div className="flex-1 overflow-y-auto p-3">
-              {shownStickers.length === 0 ? (
+              {stickersLoading && shownStickers.length === 0 ? (
+                <div className="py-10 text-center text-sm text-muted-foreground">กำลังโหลด…</div>
+              ) : shownStickers.length === 0 ? (
                 <div className="flex flex-col items-center gap-2 rounded-2xl border-2 border-dashed border-border py-10 text-center text-muted-foreground">
                   <span className="text-2xl">🔍</span>
-                  <p className="text-sm font-medium">ไม่พบสติกเกอร์</p>
+                  <p className="text-sm font-medium">
+                    {stickerQuery.trim() ? "ไม่พบสติกเกอร์" : "ยังไม่มีสติกเกอร์ในหมวดนี้"}
+                  </p>
                 </div>
               ) : (
                 <div className="grid grid-cols-4 gap-2">
@@ -377,14 +419,15 @@ export default function Sidebar({ onArm }: { onArm?: () => void } = {}) {
                       draggable
                       onDragStart={(e) => {
                         e.dataTransfer.setData("stickerId", st.id);
-                        e.dataTransfer.setData("stickerSrc", st.file);
+                        e.dataTransfer.setData("stickerSrc", st.src);
+                        e.dataTransfer.setData("stickerCategory", st.category);
                       }}
-                      onClick={() => placeSticker(st.id, st.file)}
+                      onClick={() => placeSticker(st)}
                       className="group aspect-square cursor-grab rounded-xl border-2 border-border bg-background p-1.5 transition-transform hover:-translate-y-0.5 active:cursor-grabbing"
                       title="คลิกหรือลากเพื่อวางบนหน้า"
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={st.file} alt="" draggable={false} className="size-full object-contain" />
+                      <img src={st.src} alt={st.name} loading="lazy" draggable={false} className="size-full object-contain" />
                     </button>
                   ))}
                 </div>

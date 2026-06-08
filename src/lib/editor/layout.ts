@@ -218,6 +218,7 @@ const STICKER_PAGE_W_OVER_H = 0.77;
  *  height adjusted so the square SVG stays square. Centred unless x/y given. */
 export function defaultSticker(
   stickerId: string,
+  category: string,
   src: string,
   x?: number,
   y?: number,
@@ -228,6 +229,7 @@ export function defaultSticker(
   return {
     id: uid(),
     stickerId,
+    category,
     src,
     x: x != null ? clamp(x - width / 2, 0, 1 - width) : 0.5 - width / 2,
     y: y != null ? clamp(y - height / 2, 0, 1 - height) : 0.5 - height / 2,

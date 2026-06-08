@@ -46,8 +46,9 @@ export interface TextBox {
  *  editor preview and the print PDF stay in sync. */
 export interface Sticker {
   id: string;          // unique placement id
-  stickerId: string;   // references the sticker manifest id (for PDF path lookup)
-  src: string;         // public path to the SVG, e.g. "/stickers/hearts/heart-01.svg"
+  stickerId: string;   // stable library id "category/name" (auto-discovered)
+  category: string;    // sticker category folder, e.g. "travel-journal"
+  src: string;         // public path to the asset, e.g. "/stickers/travel-journal/airplane.svg"
   x: number;           // 0–1 fraction of page width (top-left)
   y: number;           // 0–1 fraction of page height (top-left)
   width: number;       // 0–1 fraction of page width

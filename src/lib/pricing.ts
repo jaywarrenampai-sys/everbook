@@ -30,6 +30,15 @@ export const PAPERS: PaperOption[] = [
 
 export const QUANTITIES = [1, 2, 3, 5, 10];
 
+export interface ShippingOption { id: string; label: string; sub: string; price: number }
+export const SHIPPING: ShippingOption[] = [
+  { id: "standard", label: "จัดส่งมาตรฐาน", sub: "3-5 วันทำการ", price: 60 },
+  { id: "express", label: "จัดส่งด่วน", sub: "1-2 วันทำการ", price: 150 },
+];
+export function shippingPrice(id: string): number {
+  return SHIPPING.find((s) => s.id === id)?.price ?? 0;
+}
+
 export const DEFAULT_CONFIG: ProductConfig = {
   size: "a4-portrait",
   cover: "hard",

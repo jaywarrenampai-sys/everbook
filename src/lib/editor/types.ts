@@ -109,12 +109,28 @@ export interface ProductConfig {
   quantity: number;
 }
 
+/** Checkout details collected before payment (saved with the book). */
+export interface CheckoutInfo {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  address: string;
+  district: string;
+  province: string;
+  postalCode: string;
+  country: string;
+  delivery: string; // SHIPPING id
+}
+
 /** The full editor state — this is what gets saved to / loaded from the DB */
 export interface BookLayout {
   pages: BookPage[];
   currentPageIndex: number;
   /** Print product configuration (additive — older projects may omit) */
   productConfig?: ProductConfig;
+  /** Checkout details (additive) */
+  checkout?: CheckoutInfo;
 }
 
 export type ResizeHandle = "se" | "sw" | "ne" | "nw";

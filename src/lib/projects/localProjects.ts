@@ -3,7 +3,7 @@
 // (IndexedDB). No backend or login required. Photo originals are stored as
 // blobs so projects fully restore after refresh or a browser crash.
 
-import { BookLayout, ProductConfig, UploadedPhoto } from "@/lib/editor/types";
+import { BookLayout, ProductConfig, CheckoutInfo, UploadedPhoto } from "@/lib/editor/types";
 import { uid } from "@/lib/uid";
 import {
   STORES,
@@ -129,6 +129,17 @@ export async function updateProjectConfig(id: string, config: ProductConfig): Pr
   await idbPut<ProjectRecord>(STORES.PROJECTS, {
     ...rec,
     layout: { ...rec.layout, productConfig: config },
+    updatedAt: Date.now(),
+  });
+}
+
+/** Patch a project's checkout details in place (no photo rewrite). */
+export async function updateCheckout(id: string, checkout: CheckoutInfo): Promise<void> {
+  const rec = await idbGet<ProjectRecord>(STORES.PROJECTS, id);
+  if (!rec) return;
+  await idbPut<ProjectRecord>(STORES.PROJECTS, {
+    ...rec,
+    layout: { ...rec.layout, checkout },
     updatedAt: Date.now(),
   });
 }

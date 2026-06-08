@@ -32,6 +32,8 @@ import { uid } from "@/lib/uid";
 // ─── Types ──────────────────────────────────────────────────────────────────
 
 export type ViewMode = "grid" | "single";
+// "templates" = the unified "Page Designs" panel (templates + layouts merged).
+// "layouts" kept in the union only for backward-safety; no rail uses it.
 export type Panel = "images" | "templates" | "layouts" | "backgrounds" | "stickers" | "covers";
 export type SaveState = "idle" | "saving" | "saved" | "error";
 

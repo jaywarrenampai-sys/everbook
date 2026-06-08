@@ -5,7 +5,6 @@ import {
   BookImage,
   ImageIcon,
   ImagePlus,
-  Layout,
   LayoutGrid,
   Palette,
   Search,
@@ -56,8 +55,7 @@ const FUN_COLOR: Record<string, string> = {
 
 const RAIL: { id: Panel; label: string; icon: React.ReactNode; color: keyof typeof FUN_COLOR }[] = [
   { id: "images", label: "รูปภาพ", color: "peach", icon: <ImageIcon className="size-5" /> },
-  { id: "templates", label: "เทมเพลต", color: "sky", icon: <LayoutGrid className="size-5" /> },
-  { id: "layouts", label: "เลย์เอาต์", color: "mint", icon: <Layout className="size-5" /> },
+  { id: "templates", label: "ดีไซน์หน้า", color: "mint", icon: <LayoutGrid className="size-5" /> },
   { id: "covers", label: "ปก", color: "sky", icon: <BookImage className="size-5" /> },
   { id: "backgrounds", label: "พื้นหลัง", color: "butter", icon: <Palette className="size-5" /> },
   { id: "stickers", label: "สติกเกอร์", color: "peach", icon: <Smile className="size-5" /> },
@@ -449,8 +447,8 @@ export default function Sidebar({ onArm }: { onArm?: () => void } = {}) {
           </>
         )}
 
-        {/* ── TEMPLATES / LAYOUTS ── */}
-        {(activePanel === "templates" || activePanel === "layouts") && (() => {
+        {/* ── PAGE DESIGNS (templates + layouts merged) ── */}
+        {activePanel === "templates" && (() => {
           const q = tmplQuery.trim().toLowerCase();
           const shownTemplates = TEMPLATES
             .filter((t) =>
@@ -469,7 +467,7 @@ export default function Sidebar({ onArm }: { onArm?: () => void } = {}) {
                   <input
                     value={tmplQuery}
                     onChange={(e) => setTmplQuery(e.target.value)}
-                    placeholder="ค้นหาเทมเพลต / จำนวนรูป / สไตล์"
+                    placeholder="ค้นหาดีไซน์หน้า / จำนวนรูป / สไตล์"
                     className="w-full rounded-2xl border-2 border-border bg-secondary/30 py-2 pl-9 pr-3 text-sm text-foreground outline-none focus:ring-2 focus:ring-primary/40"
                   />
                 </div>

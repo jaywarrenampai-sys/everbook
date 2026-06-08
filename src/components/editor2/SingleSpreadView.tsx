@@ -50,32 +50,32 @@ export default function SingleSpreadView() {
   const mobilePage = layout.pages[layout.currentPageIndex] ?? leftPage ?? rightPage;
 
   return (
-    <div ref={containerRef} className="scroll-touch flex flex-1 flex-col items-center overflow-auto bg-[#f2f2f2] px-3 pt-5 pb-28 md:pt-8 md:pb-24">
+    <div ref={containerRef} className="scroll-touch flex flex-1 flex-col items-center overflow-auto bg-gradient-to-b from-muted to-background px-3 pt-5 pb-28 md:pt-8 md:pb-24">
       <Toolbar />
 
       {isMobile ? (
-        <div className="mt-5 overflow-hidden rounded-sm shadow-xl">
+        <div className="mt-5 overflow-hidden rounded-2xl border-4 border-card shadow-2xl shadow-foreground/10">
           {mobilePage && (
             <EditablePage page={mobilePage} photos={photos} width={pageW} height={pageH} side="right" />
           )}
         </div>
       ) : (
-        <div className="mt-6 flex overflow-hidden rounded-sm shadow-xl">
+        <div className="mt-6 flex overflow-hidden rounded-2xl border-4 border-card shadow-2xl shadow-foreground/10">
           {leftPage ? (
             <EditablePage page={leftPage} photos={photos} width={pageW} height={pageH} side="left" />
           ) : (
-            <div style={{ width: pageW, height: pageH }} className="border-r border-neutral-200 bg-neutral-50" />
+            <div style={{ width: pageW, height: pageH }} className="border-r border-border bg-muted" />
           )}
-          <div className="w-[3px] shrink-0 bg-gradient-to-r from-neutral-300 to-neutral-200" style={{ height: pageH }} />
+          <div className="w-[3px] shrink-0 bg-gradient-to-r from-foreground/15 to-foreground/5" style={{ height: pageH }} />
           {rightPage ? (
             <EditablePage page={rightPage} photos={photos} width={pageW} height={pageH} side="right" />
           ) : (
-            <div style={{ width: pageW, height: pageH }} className="bg-neutral-50" />
+            <div style={{ width: pageW, height: pageH }} className="bg-muted" />
           )}
         </div>
       )}
 
-      <span className="mt-3 text-xs font-medium text-neutral-500">{sp.label}</span>
+      <span className="mt-3 rounded-full bg-muted px-4 py-1.5 text-xs font-semibold text-muted-foreground">{sp.label}</span>
     </div>
   );
 }
@@ -145,40 +145,40 @@ function Toolbar() {
   };
 
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex items-center gap-2 rounded-full bg-white px-3 py-1.5 shadow-card ring-1 ring-neutral-200">
-        <button onClick={() => page && addTextBox(page.id)} className="rounded px-3 py-1 text-xs font-medium text-neutral-700 hover:bg-neutral-100">
+    <div className="flex flex-col items-center gap-2">
+      <div className="flex flex-wrap items-center justify-center gap-1.5 rounded-full border-2 border-border bg-card px-2.5 py-1.5 shadow-sm">
+        <button onClick={() => page && addTextBox(page.id)} className="rounded-full px-3 py-1.5 text-xs font-semibold text-foreground transition-colors hover:bg-muted">
           + เพิ่มข้อความ
         </button>
 
         {page && (
           <>
-            <div className="h-4 w-px bg-neutral-200" />
+            <div className="h-4 w-px bg-border" />
             <button
               onClick={handleFullBleedToggle}
-              className={`rounded px-3 py-1 text-xs font-medium ${page.fullBleed ? "bg-neutral-900 text-white" : "text-neutral-700 hover:bg-neutral-100"}`}
+              className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${page.fullBleed ? "bg-primary text-primary-foreground" : "text-foreground hover:bg-muted"}`}
               title={page.fullBleed ? "เปิดโครงร่างปกติ" : "เปิดโหมดเต็มหน้า"}
             >
-              {page.fullBleed ? "📄 เต็มหน้า" : "📄 เต็มหน้า"}
+              📄 เต็มหน้า
             </button>
           </>
         )}
 
         {selText && (
           <>
-            <div className="h-4 w-px bg-neutral-200" />
+            <div className="h-4 w-px bg-border" />
             {(["left", "center", "right"] as const).map((a) => (
               <button
                 key={a}
                 onClick={() => updateTextBox(page.id, { ...selText, align: a })}
-                className={`rounded px-2 py-1 text-xs ${selText.align === a ? "bg-neutral-900 text-white" : "text-neutral-600 hover:bg-neutral-100"}`}
+                className={`rounded-full px-2.5 py-1.5 text-xs font-semibold transition-colors ${selText.align === a ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
               >
                 {a === "left" ? "ซ้าย" : a === "center" ? "กลาง" : "ขวา"}
               </button>
             ))}
             <button
               onClick={() => updateTextBox(page.id, { ...selText, weight: selText.weight === "bold" ? "normal" : "bold" })}
-              className={`rounded px-2 py-1 text-xs font-bold ${selText.weight === "bold" ? "bg-neutral-900 text-white" : "text-neutral-600 hover:bg-neutral-100"}`}
+              className={`rounded-full px-2.5 py-1.5 text-xs font-bold transition-colors ${selText.weight === "bold" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
             >
               B
             </button>
@@ -187,8 +187,8 @@ function Toolbar() {
 
         {selection && (
           <>
-            <div className="h-4 w-px bg-neutral-200" />
-            <button onClick={removeSelected} className="rounded px-3 py-1 text-xs font-medium text-red-500 hover:bg-red-50">
+            <div className="h-4 w-px bg-border" />
+            <button onClick={removeSelected} className="rounded-full px-3 py-1.5 text-xs font-semibold text-destructive transition-colors hover:bg-destructive/10">
               ลบ
             </button>
           </>
@@ -316,7 +316,7 @@ function EditablePage({
               if (photoId) fillSlot(page.id, slot.id, photoId);
             }}
             style={{ position: "absolute", left: slotX * width, top: slotY * height, width: slotW * width, height: slotH * height }}
-            className={`group overflow-hidden ${photo ? "" : "border-2 border-dashed border-neutral-300 bg-neutral-100"} ${isSel ? "ring-2 ring-neutral-900" : ""}`}
+            className={`group overflow-hidden ${photo ? "" : "rounded-xl border-2 border-dashed border-foreground/15 bg-card/40"} ${isSel ? "ring-2 ring-primary" : ""}`}
           >
             {photo ? (
               <>
@@ -344,7 +344,7 @@ function EditablePage({
                 </button>
               </>
             ) : (
-              <div className="flex h-full w-full items-center justify-center text-neutral-300">
+              <div className="flex h-full w-full flex-col items-center justify-center gap-1.5 text-foreground/40">
                 <svg width="22" height="22" viewBox="0 0 24 24"><path d="M4 16l5-5 4 4 3-3 4 4M4 6h16v12H4z" stroke="currentColor" strokeWidth="1.4" fill="none" strokeLinejoin="round" /></svg>
               </div>
             )}
@@ -369,7 +369,7 @@ function EditablePage({
               );
             }}
             style={{ position: "absolute", left: pl.x * width, top: pl.y * height, width: pl.width * width, height: pl.height * height, cursor: "move", touchAction: "none" }}
-            className={`overflow-hidden ${isSel ? "ring-2 ring-neutral-900" : ""}`}
+            className={`overflow-hidden ${isSel ? "ring-2 ring-primary" : ""}`}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={photo.previewUrl} alt="" draggable={false} className="h-full w-full object-cover" />
@@ -381,7 +381,7 @@ function EditablePage({
                     updatePlacement(page.id, clampPlacement({ ...orig, width: orig.width + dx, height: orig.height + dy }))
                   );
                 }}
-                className="absolute -bottom-1 -right-1 h-4 w-4 cursor-se-resize rounded-full border-2 border-neutral-900 bg-white"
+                className="absolute -bottom-1 -right-1 h-4 w-4 cursor-se-resize rounded-full border-2 border-primary bg-card"
                 style={{ touchAction: "none" }}
               />
             )}
@@ -405,7 +405,7 @@ function EditablePage({
               );
             }}
             style={{ position: "absolute", left: t.x * width, top: t.y * height, width: t.width * width, cursor: "move", touchAction: "none" }}
-            className={isSel ? "ring-1 ring-neutral-900" : ""}
+            className={isSel ? "ring-1 ring-primary" : ""}
           >
             <div
               contentEditable={isSel}

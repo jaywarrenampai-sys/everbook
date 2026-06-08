@@ -2,6 +2,16 @@
 
 import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import {
+  ArrowLeft,
+  BookOpen,
+  Eye,
+  History,
+  Printer,
+  Redo2,
+  Save,
+  Undo2,
+} from "lucide-react";
 import { useEditorStore } from "@/lib/store/editorStore";
 
 interface Props {
@@ -11,29 +21,63 @@ interface Props {
   onOrder: () => void;
 }
 
-function IconBtn({
+const FUN_COLOR: Record<string, string> = {
+  primary: "bg-primary text-primary-foreground",
+  mint: "bg-mint text-mint-foreground",
+  sky: "bg-sky text-sky-foreground",
+  butter: "bg-butter text-butter-foreground",
+};
+
+function FunButton({
+  children,
+  icon,
+  color = "primary",
+  className = "",
+  onClick,
+}: {
+  children: React.ReactNode;
+  icon?: React.ReactNode;
+  color?: keyof typeof FUN_COLOR;
+  className?: string;
+  onClick?: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`inline-flex items-center gap-2 rounded-full px-4 py-2.5 text-sm font-bold shadow-sm transition-transform hover:-translate-y-0.5 active:translate-y-0 ${FUN_COLOR[color]} ${className}`}
+    >
+      {icon}
+      {children}
+    </button>
+  );
+}
+
+function IconChip({
+  icon,
   label,
   onClick,
   disabled,
-  children,
   active,
 }: {
+  icon: React.ReactNode;
   label: string;
   onClick?: () => void;
   disabled?: boolean;
-  children: React.ReactNode;
   active?: boolean;
 }) {
   return (
     <button
       onClick={onClick}
       disabled={disabled}
-      className={`flex flex-col items-center gap-0.5 rounded px-2.5 py-1 text-neutral-600 transition-colors hover:bg-neutral-100 hover:text-neutral-900 disabled:cursor-not-allowed disabled:opacity-35 ${
-        active ? "bg-neutral-100 text-neutral-900" : ""
+      title={label}
+      className={`inline-flex size-9 items-center justify-center rounded-full border-2 transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:translate-y-0 ${
+        active
+          ? "border-primary bg-primary/10 text-primary"
+          : "border-border bg-card text-foreground"
       }`}
     >
-      {children}
-      <span className="text-[9px] leading-none">{label}</span>
+      {icon}
+      <span className="sr-only">{label}</span>
     </button>
   );
 }
@@ -45,113 +89,91 @@ export default function TopBar({ onBack, onSave, onPreview, onOrder }: Props) {
   const future = useEditorStore((s) => s.future);
   const saveState = useEditorStore((s) => s.saveState);
   const title = useEditorStore((s) => s.projectTitle);
+  const layout = useEditorStore((s) => s.layout);
 
   const [historyOpen, setHistoryOpen] = useState(false);
 
   return (
-    <header className="no-scrollbar relative z-30 flex h-13 shrink-0 items-center gap-1 overflow-x-auto border-b border-neutral-200 bg-white px-2 py-2 md:px-3">
-      {/* Back */}
-      <button
-        onClick={onBack}
-        className="flex h-8 w-8 items-center justify-center rounded text-neutral-600 transition-colors hover:bg-neutral-100"
-        title="กลับ"
-      >
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-          <path d="M10 3L5 8l5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      </button>
+    <header className="sticky top-0 z-40 shrink-0 border-b border-border/60 bg-background/85 backdrop-blur-md">
+      <div className="no-scrollbar flex items-center gap-2 overflow-x-auto px-3 py-3">
+        {/* Back */}
+        <button
+          onClick={onBack}
+          className="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-muted text-foreground transition-transform hover:-translate-y-0.5"
+          title="กลับหน้าแรก"
+          aria-label="กลับหน้าแรก"
+        >
+          <ArrowLeft className="size-5" />
+        </button>
 
-      <div className="mx-1 h-5 w-px bg-neutral-200" />
+        <span className="hidden items-center gap-2 sm:flex">
+          <span className="inline-flex size-9 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
+            <BookOpen className="size-5" />
+          </span>
+          <span className="leading-tight">
+            <span className="block max-w-[140px] truncate font-heading text-base font-extrabold text-foreground">
+              {title || "หนังสือของฉัน"}
+            </span>
+            <span className="block text-xs font-medium text-muted-foreground">
+              {layout.pages.length} หน้า
+            </span>
+          </span>
+        </span>
 
-      {/* Undo / Redo */}
-      <IconBtn label="ย้อนกลับ" onClick={undo} disabled={past.length === 0}>
-        <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
-          <path d="M3 7h7a4 4 0 0 1 0 8H6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-          <path d="M3 7l3-3M3 7l3 3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      </IconBtn>
-      <IconBtn label="ทำซ้ำ" onClick={redo} disabled={future.length === 0}>
-        <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
-          <path d="M13 7H6a4 4 0 0 0 0 8h4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-          <path d="M13 7l-3-3M13 7l-3 3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      </IconBtn>
+        <span className="mx-1 hidden h-8 w-px bg-border sm:block" />
 
-      {/* History */}
-      <div className="relative">
-        <IconBtn label="ประวัติ" active={historyOpen} onClick={() => setHistoryOpen((v) => !v)}>
-          <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
-            <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.4" />
-            <path d="M8 5v3l2 2" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </IconBtn>
-        <AnimatePresence>
-          {historyOpen && (
-            <motion.div
-              initial={{ opacity: 0, y: -6 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -6 }}
-              className="absolute left-0 top-full mt-1 w-56 rounded-lg border border-neutral-200 bg-white p-2 shadow-lg"
-            >
-              <div className="px-2 py-1 text-[11px] font-semibold text-neutral-400">ประวัติการแก้ไข</div>
-              <div className="flex items-center justify-between px-2 py-1.5 text-xs text-neutral-600">
-                <span>ก้าวที่ย้อนได้</span>
-                <span className="font-mono">{past.length}</span>
-              </div>
-              <div className="flex items-center justify-between px-2 py-1.5 text-xs text-neutral-600">
-                <span>ก้าวที่ทำซ้ำได้</span>
-                <span className="font-mono">{future.length}</span>
-              </div>
-              <div className="mt-1 flex gap-2 border-t border-neutral-100 pt-2">
-                <button
-                  onClick={() => { undo(); }}
-                  disabled={past.length === 0}
-                  className="flex-1 rounded bg-neutral-100 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-200 disabled:opacity-40"
-                >
-                  ย้อนกลับ
-                </button>
-                <button
-                  onClick={() => { redo(); }}
-                  disabled={future.length === 0}
-                  className="flex-1 rounded bg-neutral-100 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-200 disabled:opacity-40"
-                >
-                  ทำซ้ำ
-                </button>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {/* Undo / Redo / History */}
+        <IconChip label="ย้อนกลับ" onClick={undo} disabled={past.length === 0} icon={<Undo2 className="size-4" />} />
+        <IconChip label="ทำซ้ำ" onClick={redo} disabled={future.length === 0} icon={<Redo2 className="size-4" />} />
+        <div className="relative">
+          <IconChip label="ประวัติ" active={historyOpen} onClick={() => setHistoryOpen((v) => !v)} icon={<History className="size-4" />} />
+          <AnimatePresence>
+            {historyOpen && (
+              <motion.div
+                initial={{ opacity: 0, y: -6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                className="absolute left-0 top-full z-50 mt-2 w-60 rounded-2xl border-2 border-border bg-card p-3 text-sm shadow-lg"
+              >
+                <p className="mb-1 font-semibold text-foreground">ประวัติการแก้ไข</p>
+                <p className="text-muted-foreground">
+                  ย้อนกลับได้ {past.length} ขั้น · ทำซ้ำได้ {future.length} ขั้น
+                </p>
+                <div className="mt-2 flex gap-2 border-t border-border/60 pt-2">
+                  <button
+                    onClick={() => undo()}
+                    disabled={past.length === 0}
+                    className="flex-1 rounded-full bg-muted py-1.5 text-xs font-semibold text-foreground transition-colors hover:bg-secondary disabled:opacity-40"
+                  >
+                    ย้อนกลับ
+                  </button>
+                  <button
+                    onClick={() => redo()}
+                    disabled={future.length === 0}
+                    className="flex-1 rounded-full bg-muted py-1.5 text-xs font-semibold text-foreground transition-colors hover:bg-secondary disabled:opacity-40"
+                  >
+                    ทำซ้ำ
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        {/* Spacer */}
+        <div className="flex-1" />
+
+        {/* Save / Preview / Order */}
+        <FunButton color="mint" icon={<Save className="size-4" />} onClick={onSave} className="hidden sm:inline-flex">
+          {saveState === "saving" ? "กำลังบันทึก…" : saveState === "saved" ? "บันทึกแล้ว ✓" : "บันทึก"}
+        </FunButton>
+        <FunButton color="sky" icon={<Eye className="size-4" />} onClick={onPreview}>
+          ดูตัวอย่าง
+        </FunButton>
+        <FunButton color="primary" icon={<Printer className="size-4" />} onClick={onOrder} className="hidden sm:inline-flex">
+          สั่งพิมพ์
+        </FunButton>
       </div>
-
-      {/* Title (center) */}
-      <div className="flex-1 text-center">
-        <span className="hidden truncate text-sm font-medium text-neutral-700 sm:inline">{title}</span>
-      </div>
-
-      {/* Save / Preview / Order */}
-      <IconBtn label={saveState === "saving" ? "…" : saveState === "saved" ? "✓" : "บันทึก"} onClick={onSave}>
-        <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
-          <path d="M13 10v2a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-2M8 2v7M5 6l3 3 3-3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      </IconBtn>
-      <IconBtn label="ดูตัวอย่าง" onClick={onPreview}>
-        <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
-          <path d="M1 8s3-5 7-5 7 5 7 5-3 5-7 5-7-5-7-5z" stroke="currentColor" strokeWidth="1.4" />
-          <circle cx="8" cy="8" r="2" stroke="currentColor" strokeWidth="1.4" />
-        </svg>
-      </IconBtn>
-
-      <button
-        onClick={onOrder}
-        className="ml-1 flex shrink-0 items-center gap-2 rounded-md bg-neutral-900 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-neutral-700 md:px-4"
-      >
-        <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
-          <path d="M2 2h2l2.5 7h5L14 5H5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-          <circle cx="7" cy="13" r="1" fill="currentColor" />
-          <circle cx="12" cy="13" r="1" fill="currentColor" />
-        </svg>
-        สั่งพิมพ์
-      </button>
     </header>
   );
 }

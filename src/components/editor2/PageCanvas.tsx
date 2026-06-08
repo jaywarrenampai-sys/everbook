@@ -25,7 +25,7 @@ function bgToCss(bg?: string): string {
  */
 export default function PageCanvas({ page, photos, width, height }: Props) {
   if (!page) {
-    return <div style={{ width, height }} className="shrink-0 bg-neutral-50" />;
+    return <div style={{ width, height }} className="shrink-0 bg-muted" />;
   }
 
   const template = getTemplate(page.templateId);
@@ -70,7 +70,7 @@ export default function PageCanvas({ page, photos, width, height }: Props) {
               height: slotHeight * height,
               overflow: "hidden",
             }}
-            className="bg-neutral-100"
+            className="bg-muted"
           >
             {photo && (
               // eslint-disable-next-line @next/next/no-img-element

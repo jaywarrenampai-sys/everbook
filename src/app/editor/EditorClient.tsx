@@ -79,7 +79,7 @@ export default function EditorClient() {
   }
 
   return (
-    <div className="flex h-[100dvh] flex-col overflow-hidden bg-[#f2f2f2]">
+    <div className="flex h-[100dvh] flex-col overflow-hidden bg-background">
       <TopBar
         onBack={() => router.push("/")}
         onSave={() => setShowSave(true)}
@@ -109,7 +109,7 @@ export default function EditorClient() {
         {/* Mobile tools button */}
         <button
           onClick={() => setMobileTools((v) => !v)}
-          className="absolute bottom-4 left-4 z-20 flex items-center gap-2 rounded-full bg-neutral-900 px-4 py-2.5 text-sm font-semibold text-white shadow-lg md:hidden"
+          className="absolute bottom-4 left-4 z-20 flex items-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground shadow-lg md:hidden"
         >
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
             <path d="M2 4h12M2 8h12M2 12h12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
@@ -130,7 +130,7 @@ export default function EditorClient() {
       )}
 
       {toast && (
-        <div className="fixed bottom-16 left-1/2 z-50 -translate-x-1/2 rounded-full bg-neutral-900 px-5 py-2.5 text-sm text-white shadow-lg">
+        <div className="fixed bottom-16 left-1/2 z-50 -translate-x-1/2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-lg">
           {toast}
         </div>
       )}

@@ -1,13 +1,34 @@
 "use client";
 
 import { useRef, useState } from "react";
+import {
+  ImageIcon,
+  ImagePlus,
+  Layout,
+  LayoutGrid,
+  Palette,
+  Smile,
+  Sparkles,
+  Upload,
+} from "lucide-react";
 import { useEditorStore, Panel } from "@/lib/store/editorStore";
 import { UploadedPhoto } from "@/lib/editor/types";
 import { TEMPLATES, getTemplate } from "@/lib/editor/templates";
 import { uid } from "@/lib/uid";
 
 // Solid background swatches for the Backgrounds panel
-const BACKGROUNDS = ["#ffffff", "#F7F3EC", "#EDE4D6", "#2E2620", "#1A1612", "#B4734E", "#6E7B5B", "#F3D7CB"];
+const BACKGROUNDS = [
+  "#ffffff",
+  "#F7F3EC",
+  "#EDE4D6",
+  "#F3D7CB",
+  "#FBE8C9",
+  "#D7EFE4",
+  "#D6E6F2",
+  "#6E7B5B",
+  "#B4734E",
+  "#2E2620",
+];
 
 async function processFiles(files: FileList): Promise<UploadedPhoto[]> {
   const out: UploadedPhoto[] = [];
@@ -25,13 +46,55 @@ async function processFiles(files: FileList): Promise<UploadedPhoto[]> {
   return out;
 }
 
-const RAIL: { id: Panel; label: string; icon: React.ReactNode }[] = [
-  { id: "images", label: "รูปภาพ", icon: <path d="M2 4h16v12H2zM2 13l4-4 3 3 2-2 5 5" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinejoin="round" /> },
-  { id: "templates", label: "เทมเพลต", icon: <><rect x="2" y="2" width="7" height="16" rx="1" stroke="currentColor" strokeWidth="1.5" fill="none" /><rect x="11" y="2" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="1.5" fill="none" /><rect x="11" y="11" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="1.5" fill="none" /></> },
-  { id: "layouts", label: "เลย์เอาต์", icon: <><rect x="2" y="2" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="1.5" fill="none" /><rect x="11" y="2" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="1.5" fill="none" /><rect x="2" y="11" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="1.5" fill="none" /><rect x="11" y="11" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="1.5" fill="none" /></> },
-  { id: "backgrounds", label: "พื้นหลัง", icon: <><rect x="2" y="2" width="16" height="16" rx="2" stroke="currentColor" strokeWidth="1.5" fill="none" /><path d="M2 7h16M7 2v16" stroke="currentColor" strokeWidth="1.3" /></> },
-  { id: "stickers", label: "สติกเกอร์", icon: <><circle cx="10" cy="10" r="8" stroke="currentColor" strokeWidth="1.5" fill="none" /><path d="M7 9h.01M13 9h.01M7 13s1 1.5 3 1.5 3-1.5 3-1.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" /></> },
+const FUN_COLOR: Record<string, string> = {
+  primary: "bg-primary text-primary-foreground",
+  peach: "bg-peach text-peach-foreground",
+  mint: "bg-mint text-mint-foreground",
+  sky: "bg-sky text-sky-foreground",
+  butter: "bg-butter text-butter-foreground",
+};
+
+const RAIL: { id: Panel; label: string; icon: React.ReactNode; color: keyof typeof FUN_COLOR }[] = [
+  { id: "images", label: "รูปภาพ", color: "peach", icon: <ImageIcon className="size-5" /> },
+  { id: "templates", label: "เทมเพลต", color: "sky", icon: <LayoutGrid className="size-5" /> },
+  { id: "layouts", label: "เลย์เอาต์", color: "mint", icon: <Layout className="size-5" /> },
+  { id: "backgrounds", label: "พื้นหลัง", color: "butter", icon: <Palette className="size-5" /> },
+  { id: "stickers", label: "สติกเกอร์", color: "peach", icon: <Smile className="size-5" /> },
 ];
+
+function RailButton({
+  icon,
+  label,
+  color,
+  active,
+  onClick,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  color: keyof typeof FUN_COLOR;
+  active?: boolean;
+  onClick?: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`group flex shrink-0 flex-col items-center gap-1 rounded-2xl px-2 py-2 transition-transform hover:-translate-y-0.5 lg:w-full ${
+        active ? "bg-secondary/50" : ""
+      }`}
+    >
+      <span
+        className={`inline-flex size-11 items-center justify-center rounded-2xl shadow-sm transition-transform group-hover:scale-105 group-active:scale-95 ${FUN_COLOR[color]} ${
+          active ? "ring-2 ring-foreground/30 ring-offset-2 ring-offset-card" : ""
+        }`}
+      >
+        {icon}
+      </span>
+      <span className={`text-[11px] font-semibold ${active ? "text-foreground" : "text-muted-foreground"}`}>
+        {label}
+      </span>
+    </button>
+  );
+}
 
 export default function Sidebar({ onArm }: { onArm?: () => void } = {}) {
   const activePanel = useEditorStore((s) => s.activePanel);
@@ -69,81 +132,85 @@ export default function Sidebar({ onArm }: { onArm?: () => void } = {}) {
   const shown = hideUsed ? photos.filter((p) => usageCount(p.id) === 0) : photos;
 
   return (
-    <div className="flex h-full shrink-0">
+    <div className="flex h-full shrink-0 gap-2 p-2">
       {/* Icon rail */}
-      <div className="flex w-14 flex-col items-center gap-1 border-r border-neutral-200 bg-white py-3">
+      <div className="flex flex-col gap-2 rounded-3xl border-2 border-border bg-card p-2 shadow-sm">
         {RAIL.map((r) => (
-          <button
+          <RailButton
             key={r.id}
+            icon={r.icon}
+            label={r.label}
+            color={r.color}
+            active={activePanel === r.id}
             onClick={() => setPanel(r.id)}
-            className={`flex w-12 flex-col items-center gap-1 rounded-lg py-2 transition-colors ${
-              activePanel === r.id ? "bg-neutral-100 text-neutral-900" : "text-neutral-400 hover:bg-neutral-50 hover:text-neutral-700"
-            }`}
-          >
-            <svg width="20" height="20" viewBox="0 0 20 20">{r.icon}</svg>
-            <span className="text-[8px] font-medium leading-none">{r.label}</span>
-          </button>
+          />
         ))}
       </div>
 
       {/* Panel */}
-      <div className="flex w-60 flex-col overflow-hidden border-r border-neutral-200 bg-white">
+      <div className="flex w-64 flex-col overflow-hidden rounded-3xl border-2 border-border bg-card shadow-sm">
         {/* ── IMAGES ── */}
         {activePanel === "images" && (
           <>
-            <div className="space-y-2 border-b border-neutral-100 p-3">
+            <div className="space-y-2.5 border-b border-border/60 p-4">
               <button
                 onClick={() => fileRef.current?.click()}
                 disabled={uploading}
-                className="flex w-full items-center justify-center gap-2 rounded-md border border-neutral-300 px-3 py-2 text-sm font-medium text-neutral-700 transition-colors hover:border-neutral-500 disabled:opacity-50"
+                className="flex w-full items-center justify-center gap-2 rounded-2xl bg-primary px-4 py-3 text-sm font-bold text-primary-foreground shadow-sm transition-transform hover:-translate-y-0.5 disabled:opacity-50"
               >
-                <svg width="14" height="14" viewBox="0 0 14 14"><path d="M7 2v10M2 7h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
-                {uploading ? "กำลังอัปโหลด..." : "เพิ่มรูปภาพ"}
+                <Upload className="size-4" />
+                {uploading ? "กำลังอัปโหลด..." : "อัปโหลดรูปภาพ"}
               </button>
 
-              {/* Smart Creation */}
-              <button
-                onClick={smartCreate}
-                disabled={photos.length === 0}
-                className="flex w-full items-center justify-center gap-2 rounded-md bg-neutral-900 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-neutral-700 disabled:opacity-40"
-              >
-                ✨ สร้างอัตโนมัติ
-              </button>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={smartCreate}
+                  disabled={photos.length === 0}
+                  className="inline-flex items-center justify-center gap-1.5 rounded-2xl bg-sky px-3 py-2.5 text-xs font-bold text-sky-foreground transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:translate-y-0"
+                >
+                  <Sparkles className="size-3.5" />
+                  สร้างอัตโนมัติ
+                </button>
+                <button
+                  onClick={autofill}
+                  disabled={photos.length === 0}
+                  className="inline-flex items-center justify-center gap-1.5 rounded-2xl bg-mint px-3 py-2.5 text-xs font-bold text-mint-foreground transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:translate-y-0"
+                >
+                  <ImagePlus className="size-3.5" />
+                  เติมรูปอัตโนมัติ
+                </button>
+              </div>
 
-              {/* Autofill */}
-              <button
-                onClick={autofill}
-                disabled={photos.length === 0}
-                className="w-full rounded-md border border-neutral-200 px-3 py-1.5 text-sm text-neutral-600 transition-colors hover:border-neutral-400 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                เติมรูปอัตโนมัติ
-              </button>
-            </div>
-
-            {/* Hide used */}
-            <div className="flex items-center justify-between border-b border-neutral-100 px-3 py-2">
-              <span className="text-[11px] text-neutral-500">{usedTotal} ใช้แล้ว / {photos.length} ทั้งหมด</span>
-              <label className="flex items-center gap-1.5 text-[10px] text-neutral-400">
-                ซ่อนที่ใช้แล้ว
+              {/* Hide used */}
+              <div className="flex items-center justify-between text-xs font-medium text-muted-foreground">
+                <span>
+                  <span className="font-bold text-foreground">{usedTotal}</span> ใช้แล้ว /{" "}
+                  <span className="font-bold text-foreground">{photos.length}</span> ทั้งหมด
+                </span>
                 <button
                   onClick={() => setHideUsed(!hideUsed)}
-                  className={`relative h-4 w-8 rounded-full transition-colors ${hideUsed ? "bg-neutral-800" : "bg-neutral-200"}`}
+                  className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-semibold transition-colors ${
+                    hideUsed ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"
+                  }`}
                 >
-                  <span className={`absolute top-0.5 h-3 w-3 rounded-full bg-white shadow transition-transform ${hideUsed ? "translate-x-4" : "translate-x-0.5"}`} />
+                  <span className={`size-2 rounded-full ${hideUsed ? "bg-primary" : "bg-muted-foreground/50"}`} />
+                  ซ่อนที่ใช้แล้ว
                 </button>
-              </label>
+              </div>
             </div>
 
             {/* Grid */}
-            <div className="flex-1 overflow-y-auto p-2">
-              {uploading && <div className="py-6 text-center text-xs text-neutral-400">กำลังโหลด…</div>}
+            <div className="flex-1 overflow-y-auto p-3">
+              {uploading && <div className="py-6 text-center text-xs text-muted-foreground">กำลังโหลด…</div>}
               {shown.length === 0 && !uploading && (
-                <div className="flex flex-col items-center gap-2 py-10 text-center text-xs text-neutral-300">
-                  <svg width="32" height="32" viewBox="0 0 32 32" fill="none"><rect x="3" y="7" width="26" height="18" rx="3" stroke="currentColor" strokeWidth="1.8" /><circle cx="11" cy="14" r="2.5" stroke="currentColor" strokeWidth="1.5" /><path d="M4 24l6-6 5 5 4-3 9 4" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" /></svg>
-                  {photos.length === 0 ? "เพิ่มรูปภาพเพื่อเริ่มต้น" : "ไม่มีรูปที่ยังไม่ได้ใช้"}
+                <div className="flex flex-col items-center gap-2 rounded-2xl border-2 border-dashed border-border py-10 text-center text-muted-foreground">
+                  <ImageIcon className="size-7 opacity-50" />
+                  <p className="text-sm font-medium">
+                    {photos.length === 0 ? "เพิ่มรูปภาพเพื่อเริ่มต้น" : "ไม่มีรูปที่ยังไม่ได้ใช้"}
+                  </p>
                 </div>
               )}
-              <div className="grid grid-cols-2 gap-1.5">
+              <div className="grid grid-cols-3 gap-2">
                 {shown.map((photo) => {
                   const uses = usageCount(photo.id);
                   return (
@@ -156,20 +223,20 @@ export default function Sidebar({ onArm }: { onArm?: () => void } = {}) {
                         armPhoto(next);
                         if (next) onArm?.();
                       }}
-                      className={`group relative cursor-grab overflow-hidden rounded-sm active:cursor-grabbing ${
-                        armedPhotoId === photo.id ? "ring-2 ring-neutral-900 ring-offset-1" : ""
+                      className={`group relative aspect-square cursor-grab overflow-hidden rounded-xl border-2 transition-transform hover:-translate-y-0.5 active:cursor-grabbing ${
+                        armedPhotoId === photo.id ? "border-primary ring-2 ring-primary/40" : "border-border"
                       }`}
-                      style={{ aspectRatio: "1" }}
+                      title="คลิกเพื่อวางในหน้าปัจจุบัน"
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={photo.previewUrl} alt="" draggable={false} className="h-full w-full object-cover" />
+                      <img src={photo.previewUrl} alt="" draggable={false} className="size-full object-cover" />
                       {armedPhotoId === photo.id && (
-                        <span className="absolute inset-0 flex items-center justify-center bg-neutral-900/35 text-[10px] font-semibold text-white">
+                        <span className="absolute inset-0 flex items-center justify-center bg-foreground/35 text-[10px] font-semibold text-background">
                           แตะหน้าเพื่อวาง
                         </span>
                       )}
                       {uses > 0 && (
-                        <span className="absolute bottom-1 right-1 min-w-[16px] rounded-sm bg-neutral-900/70 px-1 text-center text-[9px] font-bold leading-4 text-white">
+                        <span className="absolute right-1 top-1 inline-flex size-4 items-center justify-center rounded-full bg-primary text-[9px] font-bold text-primary-foreground">
                           {uses}
                         </span>
                       )}
@@ -183,11 +250,11 @@ export default function Sidebar({ onArm }: { onArm?: () => void } = {}) {
 
         {/* ── TEMPLATES / LAYOUTS ── */}
         {(activePanel === "templates" || activePanel === "layouts") && (
-          <div className="flex-1 overflow-y-auto p-3">
-            <div className="mb-3 text-xs font-semibold text-neutral-600">
+          <div className="flex-1 overflow-y-auto p-4">
+            <h2 className="mb-3 font-heading text-base font-bold text-foreground">
               {activePanel === "templates" ? "เทมเพลต" : "เลย์เอาต์"}
-            </div>
-            <div className="grid grid-cols-2 gap-2">
+            </h2>
+            <div className="grid grid-cols-2 gap-2.5">
               {TEMPLATES.map((tmpl) => {
                 const def = getTemplate(tmpl.id);
                 const active = currentPage?.templateId === tmpl.id;
@@ -195,14 +262,20 @@ export default function Sidebar({ onArm }: { onArm?: () => void } = {}) {
                   <button
                     key={tmpl.id}
                     onClick={() => currentPage && applyTemplate(currentPage.id, tmpl.id)}
-                    className={`flex flex-col items-center gap-1.5 rounded-md border-2 p-2 transition-colors ${active ? "border-neutral-900 bg-neutral-50" : "border-neutral-200 hover:border-neutral-400"}`}
+                    className={`flex flex-col items-center gap-2 rounded-2xl border-2 p-3 transition-all hover:-translate-y-0.5 ${
+                      active ? "border-primary bg-primary/5" : "border-border bg-background"
+                    }`}
                   >
-                    <div className="relative w-full overflow-hidden rounded-sm bg-neutral-100" style={{ aspectRatio: "0.77" }}>
+                    <div className="relative w-full overflow-hidden rounded-lg border border-border bg-muted" style={{ aspectRatio: "0.77" }}>
                       {def.slots.map((slot) => (
-                        <div key={slot.id} className="absolute border border-neutral-200 bg-neutral-300" style={{ left: `${slot.x * 100}%`, top: `${slot.y * 100}%`, width: `${slot.width * 100}%`, height: `${slot.height * 100}%` }} />
+                        <div
+                          key={slot.id}
+                          className="absolute rounded bg-primary/30"
+                          style={{ left: `${slot.x * 100}%`, top: `${slot.y * 100}%`, width: `${slot.width * 100}%`, height: `${slot.height * 100}%` }}
+                        />
                       ))}
                     </div>
-                    <span className="text-[10px] font-medium text-neutral-600">{tmpl.label}</span>
+                    <span className="text-center text-xs font-semibold text-foreground">{tmpl.label}</span>
                   </button>
                 );
               })}
@@ -212,14 +285,16 @@ export default function Sidebar({ onArm }: { onArm?: () => void } = {}) {
 
         {/* ── BACKGROUNDS ── */}
         {activePanel === "backgrounds" && (
-          <div className="flex-1 overflow-y-auto p-3">
-            <div className="mb-3 text-xs font-semibold text-neutral-600">พื้นหลังหน้านี้</div>
-            <div className="grid grid-cols-4 gap-2">
+          <div className="flex-1 overflow-y-auto p-4">
+            <h2 className="mb-3 font-heading text-base font-bold text-foreground">พื้นหลังหน้านี้</h2>
+            <div className="grid grid-cols-5 gap-2.5">
               {BACKGROUNDS.map((bg) => (
                 <button
                   key={bg}
                   onClick={() => currentPage && setBackground(currentPage.id, bg === "#ffffff" ? undefined : bg)}
-                  className="aspect-square rounded-md border border-neutral-200 ring-offset-1 transition-transform hover:scale-105"
+                  className={`aspect-square rounded-xl border-2 transition-transform hover:scale-110 ${
+                    currentPage?.background === bg ? "border-foreground" : "border-border"
+                  }`}
                   style={{ background: bg }}
                   title={bg}
                 />
@@ -230,11 +305,10 @@ export default function Sidebar({ onArm }: { onArm?: () => void } = {}) {
 
         {/* ── STICKERS (placeholder) ── */}
         {activePanel === "stickers" && (
-          <div className="flex flex-1 items-center justify-center p-4 text-center text-xs text-neutral-400">
-            <div>
-              <div className="mb-2 text-2xl">🎉</div>
-              สติกเกอร์เร็วๆ นี้
-            </div>
+          <div className="flex flex-1 flex-col items-center justify-center gap-2 p-6 text-center">
+            <span className="text-4xl">🎉</span>
+            <p className="font-heading text-base font-bold text-foreground">สติกเกอร์เร็วๆ นี้</p>
+            <p className="text-sm text-muted-foreground">เรากำลังเตรียมสติกเกอร์น่ารักๆ ให้คุณ</p>
           </div>
         )}
       </div>

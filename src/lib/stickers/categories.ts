@@ -1,6 +1,7 @@
-// Presentation metadata for sticker categories (label + emoji).
+// Presentation metadata for sticker STYLE collections (label + emoji).
 // Not a list of stickers — stickers are auto-discovered from the filesystem.
-// New folders still appear, with a title-cased label + default emoji.
+// Users pick an art style; drop PNG/WEBP packs into a folder and it appears.
+// New folders still work, with a title-cased label + default emoji.
 
 export interface CategoryMeta {
   label: string;
@@ -8,15 +9,26 @@ export interface CategoryMeta {
 }
 
 const META: Record<string, CategoryMeta> = {
-  "scrapbook-essentials": { label: "Scrapbook Essentials", emoji: "🧸" },
-  "cute-dreams": { label: "Cute Dreams", emoji: "☁️" },
-  "baby-memories": { label: "Baby Memories", emoji: "👶" },
-  "floral-garden": { label: "Floral Garden", emoji: "🌸" },
-  "birthday-party": { label: "Birthday Party", emoji: "🎂" },
-  "travel-memories": { label: "Travel Memories", emoji: "✈️" },
-  "love-wedding": { label: "Love & Wedding", emoji: "💕" },
-  "woodland-friends": { label: "Woodland Friends", emoji: "🦊" },
-  "cute-animals": { label: "Cute Animals", emoji: "🦕" },
+  "pastel-watercolor": { label: "Pastel Watercolor", emoji: "🎀" },
+  "kawaii-japanese": { label: "Kawaii Japanese", emoji: "🌈" },
+  "hand-doodle": { label: "Hand Doodle", emoji: "✏️" },
+  "vintage-scrapbook": { label: "Vintage Scrapbook", emoji: "📜" },
+  "korean-aesthetic": { label: "Korean Aesthetic", emoji: "🌸" },
+  "flat-vivid-pop": { label: "Flat Vivid Pop", emoji: "🍬" },
+  "magical-fantasy": { label: "Magical Fantasy", emoji: "✨" },
+  "embroidery-felt": { label: "Embroidery / Felt", emoji: "🧵" },
+  "crayon-kids": { label: "Crayon Kids", emoji: "🖍" },
+  "puffy-bubble": { label: "Puffy Bubble", emoji: "🫧" },
+  // Future collections (appear automatically once a folder has art):
+  "oil-painting": { label: "Oil Painting", emoji: "🎨" },
+  "clay-art": { label: "Clay Art", emoji: "🧱" },
+  "anime-chibi": { label: "Anime Chibi", emoji: "👧" },
+  "disney-storybook": { label: "Disney Storybook", emoji: "🏰" },
+  "gold-foil-luxury": { label: "Gold Foil Luxury", emoji: "🥇" },
+  "pixel-art": { label: "Pixel Art", emoji: "🟦" },
+  "cottagecore": { label: "Cottagecore", emoji: "🌿" },
+  "scandinavian-minimal": { label: "Scandinavian Minimal", emoji: "🤍" },
+  "neon-doodles": { label: "Neon Doodles", emoji: "💡" },
 };
 
 export function categoryMeta(slug: string): CategoryMeta {

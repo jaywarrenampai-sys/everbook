@@ -42,7 +42,8 @@ function foregroundMask(data, W, H, ch) {
     return { fg, dark };
   }
   // light/checker background: flood-fill "light" pixels from the border = background
-  const isLight = (p) => { const i = p * ch; return lum(data[i], data[i + 1], data[i + 2]) > 200; };
+  const LIGHT_T = Number(process.env.LIGHT_T || 205);
+  const isLight = (p) => { const i = p * ch; return lum(data[i], data[i + 1], data[i + 2]) > LIGHT_T; };
   const bg = new Uint8Array(N);
   const stack = [];
   for (let x = 0; x < W; x++) { stack.push(x, (H - 1) * W + x); }
@@ -119,7 +120,16 @@ async function main() {
 
   if (mode !== "write") return;
 
-  const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+  let manifest;
+  if (manifestPath.startsWith("letters:")) {
+    const cat = manifestPath.slice("letters:".length);
+    manifest = "abcdefghijklmnopqrstuvwxyz".split("").map((ch) => ({ category: cat, name: ch }));
+  } else if (manifestPath.startsWith("seq:")) {
+    const [, cat, prefix] = manifestPath.split(":");
+    manifest = Array.from({ length: 400 }, () => ({ category: cat, name: prefix }));
+  } else {
+    manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+  }
   const counts = {};
   let written = 0;
   for (let i = 0; i < ordered.length && i < manifest.length; i++) {

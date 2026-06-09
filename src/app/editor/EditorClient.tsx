@@ -11,12 +11,16 @@ import {
 } from "@/lib/projects/localProjects";
 import { makeCoverThumbnail } from "@/lib/projects/thumbnail";
 import { uid } from "@/lib/uid";
+import { useIsMobile } from "@/lib/useIsMobile";
 import TopBar from "@/components/editor2/TopBar";
 import Sidebar from "@/components/editor2/Sidebar";
 import PageGrid from "@/components/editor2/PageGrid";
 import SingleSpreadView from "@/components/editor2/SingleSpreadView";
 import BottomBar from "@/components/editor2/BottomBar";
+import MobileNav from "@/components/editor2/MobileNav";
+import BottomSheet from "@/components/editor2/BottomSheet";
 import SaveModal from "@/components/editor/SaveModal";
+import { ImageIcon, Type, Smile, Palette } from "lucide-react";
 
 export default function EditorClient() {
   const router = useRouter();
@@ -32,11 +36,24 @@ export default function EditorClient() {
   const undo = useEditorStore((s) => s.undo);
   const redo = useEditorStore((s) => s.redo);
   const removeSelected = useEditorStore((s) => s.removeSelected);
+  const setPanel = useEditorStore((s) => s.setPanel);
+  const addTextBox = useEditorStore((s) => s.addTextBox);
 
+  const isMobile = useIsMobile();
   const [showSave, setShowSave] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
-  const [mobileTools, setMobileTools] = useState(false);
+  const [sheet, setSheet] = useState<"none" | "panels" | "add">("none");
+
+  function openPanelSheet(panel: "images" | "templates" | "stickers" | "backgrounds" | "covers") {
+    setPanel(panel);
+    setSheet("panels");
+  }
+  function addText() {
+    const cur = layout.pages[layout.currentPageIndex];
+    if (cur) addTextBox(cur.id);
+    setSheet("none");
+  }
 
   function flash(msg: string) {
     setToast(msg);
@@ -165,29 +182,35 @@ export default function EditorClient() {
         {/* Canvas */}
         {viewMode === "grid" ? <PageGrid /> : <SingleSpreadView />}
 
-        {/* Mobile sidebar drawer */}
-        {mobileTools && (
-          <>
-            <div className="absolute inset-0 z-30 bg-black/30 md:hidden" onClick={() => setMobileTools(false)} />
-            <div className="absolute inset-y-0 left-0 z-40 shadow-2xl md:hidden">
-              <Sidebar onArm={() => setMobileTools(false)} />
-            </div>
-          </>
-        )}
-
-        {/* Mobile tools button */}
-        <button
-          onClick={() => setMobileTools((v) => !v)}
-          className="absolute bottom-4 left-4 z-20 flex items-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground shadow-lg md:hidden"
-        >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-            <path d="M2 4h12M2 8h12M2 12h12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-          </svg>
-          เครื่องมือ
-        </button>
       </div>
 
-      <BottomBar />
+      {/* Bottom navigation: desktop full bar, mobile simplified nav */}
+      {isMobile ? (
+        <MobileNav
+          onPhotos={() => openPanelSheet("images")}
+          onAdd={() => setSheet("add")}
+          onDesign={() => openPanelSheet("templates")}
+        />
+      ) : (
+        <BottomBar />
+      )}
+
+      {/* Mobile: tool panels as a bottom sheet (Sidebar reused, lazy-mounted) */}
+      <BottomSheet open={isMobile && sheet === "panels"} onClose={() => setSheet("none")} title="เครื่องมือ">
+        <div className="flex justify-center">
+          <Sidebar onArm={() => setSheet("none")} />
+        </div>
+      </BottomSheet>
+
+      {/* Mobile: Add action sheet */}
+      <BottomSheet open={isMobile && sheet === "add"} onClose={() => setSheet("none")} title="เพิ่ม" height="auto">
+        <div className="grid grid-cols-2 gap-3 p-4">
+          <AddTile icon={<ImageIcon className="size-6" />} label="เพิ่มรูปภาพ" onClick={() => openPanelSheet("images")} />
+          <AddTile icon={<Type className="size-6" />} label="เพิ่มข้อความ" onClick={addText} />
+          <AddTile icon={<Smile className="size-6" />} label="เพิ่มสติกเกอร์" onClick={() => openPanelSheet("stickers")} />
+          <AddTile icon={<Palette className="size-6" />} label="เพิ่มพื้นหลัง" onClick={() => openPanelSheet("backgrounds")} />
+        </div>
+      </BottomSheet>
 
       {showSave && (
         <SaveModal
@@ -199,10 +222,22 @@ export default function EditorClient() {
       )}
 
       {toast && (
-        <div className="fixed bottom-16 left-1/2 z-50 -translate-x-1/2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-lg">
+        <div className="fixed bottom-24 left-1/2 z-50 -translate-x-1/2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-lg">
           {toast}
         </div>
       )}
     </div>
+  );
+}
+
+function AddTile({ icon, label, onClick }: { icon: React.ReactNode; label: string; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-border bg-card py-5 text-sm font-bold text-foreground transition-transform active:scale-95"
+    >
+      <span className="inline-flex size-11 items-center justify-center rounded-2xl bg-secondary text-secondary-foreground">{icon}</span>
+      {label}
+    </button>
   );
 }

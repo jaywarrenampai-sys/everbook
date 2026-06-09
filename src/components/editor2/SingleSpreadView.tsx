@@ -32,10 +32,10 @@ export default function SingleSpreadView() {
     const el = containerRef.current;
     if (!el) return;
     const resize = () => {
-      const avail = el.clientWidth - (isMobile ? 28 : 96);
+      const avail = el.clientWidth - (isMobile ? 16 : 96);
       // One page on mobile, two-page spread on desktop
       const target = isMobile ? avail : avail / 2;
-      setPageW(Math.max(160, Math.min(440, target)));
+      setPageW(Math.max(160, Math.min(isMobile ? 560 : 440, target)));
     };
     resize();
     const ro = new ResizeObserver(resize);
@@ -52,7 +52,7 @@ export default function SingleSpreadView() {
   const mobilePage = layout.pages[layout.currentPageIndex] ?? leftPage ?? rightPage;
 
   return (
-    <div ref={containerRef} className="scroll-touch flex flex-1 flex-col items-center overflow-auto bg-gradient-to-b from-muted to-background px-3 pt-5 pb-28 md:pt-8 md:pb-24">
+    <div ref={containerRef} className="scroll-touch flex flex-1 flex-col items-center overflow-auto bg-gradient-to-b from-muted to-background px-2 pt-3 pb-4 md:px-3 md:pt-8 md:pb-24">
       <Toolbar />
 
       <div className="mt-6">
@@ -88,6 +88,8 @@ function Toolbar() {
   const setCropX = useEditorStore((s) => s.setCropX);
   const setCropY = useEditorStore((s) => s.setCropY);
   const setZoom = useEditorStore((s) => s.setZoom);
+  const isMobile = useIsMobile();
+  const [advancedOpen, setAdvancedOpen] = useState(false);
 
   const page = layout.pages[layout.currentPageIndex];
   const selText =
@@ -143,9 +145,11 @@ function Toolbar() {
   return (
     <div className="flex flex-col items-center gap-2">
       <div className="flex flex-wrap items-center justify-center gap-1.5 rounded-full border-2 border-border bg-card px-2.5 py-1.5 shadow-sm">
-        <button onClick={() => page && addTextBox(page.id)} className="rounded-full px-3 py-1.5 text-xs font-semibold text-foreground transition-colors hover:bg-muted">
-          + เพิ่มข้อความ
-        </button>
+        {!isMobile && (
+          <button onClick={() => page && addTextBox(page.id)} className="rounded-full px-3 py-1.5 text-xs font-semibold text-foreground transition-colors hover:bg-muted">
+            + เพิ่มข้อความ
+          </button>
+        )}
 
         {page && (
           <>
@@ -157,6 +161,15 @@ function Toolbar() {
             >
               📄 เต็มหน้า
             </button>
+            {/* Mobile: advanced (X/Y/Zoom) hidden behind a toggle to reduce clutter */}
+            {isMobile && page.fullBleed && (
+              <button
+                onClick={() => setAdvancedOpen((v) => !v)}
+                className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${advancedOpen ? "bg-primary text-primary-foreground" : "text-foreground hover:bg-muted"}`}
+              >
+                ⚙️ ขั้นสูง
+              </button>
+            )}
           </>
         )}
 
@@ -191,8 +204,8 @@ function Toolbar() {
         )}
       </div>
 
-      {/* Full bleed crop/zoom controls */}
-      {page && page.fullBleed && (
+      {/* Full bleed crop/zoom controls (mobile: only when Advanced is open) */}
+      {page && page.fullBleed && (!isMobile || advancedOpen) && (
         <FullBleedControls
           cropX={page.cropX ?? 0}
           cropY={page.cropY ?? 0}
